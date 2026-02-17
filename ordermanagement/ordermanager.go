@@ -1,6 +1,43 @@
 package ordermanagement
 
-type Channels struct {
+import(e "heis/elevio")
+
+
+func Run(button_pressed <-chan e.ButtonEvent){
+
+	for{
+		/* select{
+		case button := <-button_pressed: 
+
+
+		} */
+	
+	
+	}
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* type Channels struct {
 	HallPressed <-chan HallButtonEvent
 	CabPressed <-chan CabButtonEvent
 	HallCleared <-chan ClearHallEvent
@@ -26,3 +63,4 @@ func Run(myID string, ch Channels){
 	ch.OrdersOut <- Orders{Cab: append([]bool(nil), myCab...)}
 
 }
+ */

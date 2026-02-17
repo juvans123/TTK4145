@@ -1,8 +1,19 @@
 package ordermanagement
 
-import "time"
 
-type Dir int
+
+type Orders struct {   
+	Cab  []bool
+	Hall [4][2]bool
+}
+
+var CurrentOrders Orders = Orders{
+	Cab:  make([]bool, 4),
+	Hall: [4][2]bool{},
+}
+
+
+/* type Dir int
 const (
 	DirUp Dir = 0
 	DirDown Dir = 1
@@ -30,4 +41,5 @@ type Orders struct {
 	Cab []bool
 	Hall [config.N_FLOORS][2]bool
 }
+ */
 
