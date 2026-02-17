@@ -1,10 +1,10 @@
 package main
 
-
-
 import (
 	"heis/elevio"
 	"heis/fsm"
+	"heis/ordermanagement"
+	om "heis/ordermanagement"
 	"heis/timer"
 )
 
@@ -23,7 +23,7 @@ func main() {
 	elevioCmd := make(chan elevio.DriverCmd)
 	timerCmd := make(chan bool)
 	doorTimeOut := make(chan bool)
-	
+	ordersCmd := make(chan om.Orders)
 
 	
 
@@ -37,7 +37,9 @@ func main() {
 	go timer.Run(timerCmd, doorTimeOut)
 
 	// Start FSM som håndterer logikk
-	go fsm.Run(button_pressed, doorTimeOut, floor_arrived, obstruction_pressed, stopButton_pressed, elevioCmd, timerCmd)
+	go fsm.Run(button_pressed, ordersCmd, doorTimeOut, floor_arrived, obstruction_pressed, stopButton_pressed, elevioCmd, timerCmd)
+
+	go ordermanagement.Run(button_pressed, ordersCmd)
 
 	// Start elevio.Run som sender kommandoer til heisen
 	elevio.ExecuteElevioCmds(elevioCmd)

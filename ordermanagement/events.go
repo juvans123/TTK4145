@@ -1,5 +1,5 @@
 package ordermanagement
-
+/*
 type HallButtonEvent struct {
     Floor int
     Dir   Dir
@@ -17,3 +17,4 @@ type ClearHallEvent struct {
 type ClearCabEvent struct {
     Floor int
 }
+ */

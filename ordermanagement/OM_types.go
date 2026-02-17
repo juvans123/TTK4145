@@ -1,17 +1,16 @@
 package ordermanagement
 
 
-
 type Orders struct {   
 	Cab  []bool
 	Hall [4][2]bool
 }
 
-var CurrentOrders Orders = Orders{
+/* var CurrentOrders Orders = Orders{
 	Cab:  make([]bool, 4),
 	Hall: [4][2]bool{},
 }
-
+ */
 
 /* type Dir int
 const (
