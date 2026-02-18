@@ -6,19 +6,30 @@ import (
 )
 
 // Run kjører order-managerens hovedloop
-func Run(button_pressed <-chan elevio.ButtonEvent, ordersCmd chan<- Orders) {
+func Run(button_pressed <-chan elevio.ButtonEvent, ordersCmd chan <- Orders, orders_Executed <- chan ExecutedOrder ){
 
 	orders := Orders{
 		Cab:  make([]bool, 4),
 		Hall: [4][2]bool{},
 	}
 
-	for button := range button_pressed {
-		UpdateOrders(button, &orders)
-		ordersCmd <- orders
-	}
-}
+	for{
 
+	select{
+		case button := <- button_pressed:
+			UpdateOrders(button, &orders)
+			ordersCmd <- orders
+
+		case exec := <- orders_Executed:
+			
+			ClearCurrentFloor(&orders, exec.Floor, exec.TravelDir)
+			ordersCmd <- orders
+
+	}
+
+	}
+
+}
 // UpdateOrders oppdaterer ordrelisten basert på knappetrykk
 func UpdateOrders(buttonEvent elevio.ButtonEvent, orders *Orders) {
 	switch buttonEvent.Button {
@@ -36,7 +47,7 @@ func UpdateOrders(buttonEvent elevio.ButtonEvent, orders *Orders) {
 	}
 }
 
-func ClearAllOrders(elevioCmd chan<- elevio.DriverCmd, orders *Orders) {
+func ClearAllOrders( orders *Orders) {
 	for floor := 0; floor < 4; floor++ {
 
 		orders.Cab[floor] = false
@@ -45,33 +56,32 @@ func ClearAllOrders(elevioCmd chan<- elevio.DriverCmd, orders *Orders) {
 	}
 }
 
-func ClearCurrentFloor(orders Orders, currentFloor int, elevioCmd chan<- elevio.DriverCmd, travelDir c.TravelDirection) {
-	orders.Cab[currentFloor] = false
-	//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_Cab, Floor: currentFloor, Value: false}
+func ClearCurrentFloor(orders *Orders, currentFloor int, travelDir c.TravelDirection) {
+    orders.Cab[currentFloor] = false
+    //elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_Cab, Floor: currentFloor, Value: false}
 
-	switch travelDir {
-	case c.TD_Up:
-		if OrdersAbove(orders, currentFloor) {
-			orders.Hall[currentFloor][elevio.BT_HallUp] = false
-			//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallUp, Floor: currentFloor, Value: false}
-		} else {
-			orders.Hall[currentFloor][elevio.BT_HallUp] = false
-			orders.Hall[currentFloor][elevio.BT_HallDown] = false
-			//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallDown, Floor: currentFloor, Value: false}
-			//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallUp, Floor: currentFloor, Value: false}
-		}
-	case c.TD_Down:
-		if OrdersBelow(orders, currentFloor) {
-			orders.Hall[currentFloor][elevio.BT_HallDown] = false
-			//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallDown, Floor: currentFloor, Value: false}
-		} else {
-			orders.Hall[currentFloor][elevio.BT_HallUp] = false
-			orders.Hall[currentFloor][elevio.BT_HallDown] = false
-			//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallDown, Floor: currentFloor, Value: false}
-			//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallUp, Floor: currentFloor, Value: false}
-		}
-	}
-
+    switch travelDir {
+    case c.TD_Up:
+        if OrdersAbove(*orders, currentFloor) {
+            orders.Hall[currentFloor][elevio.BT_HallUp] = false
+            //elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallUp, Floor: currentFloor, Value: false}
+        } else {
+            orders.Hall[currentFloor][elevio.BT_HallUp] = false
+            orders.Hall[currentFloor][elevio.BT_HallDown] = false
+            //elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallDown, Floor: currentFloor, Value: false}
+            //elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallUp, Floor: currentFloor, Value: false}
+        }
+    case c.TD_Down:
+        if OrdersBelow(*orders, currentFloor) {
+            orders.Hall[currentFloor][elevio.BT_HallDown] = false
+            //elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallDown, Floor: currentFloor, Value: false}
+        } else {
+            orders.Hall[currentFloor][elevio.BT_HallUp] = false
+            orders.Hall[currentFloor][elevio.BT_HallDown] = false
+            //elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallDown, Floor: currentFloor, Value: false}
+            //elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_HallUp, Floor: currentFloor, Value: false}
+        }
+    }
 }
 
 func OrdersAbove(orders Orders, currentFloor int) bool {

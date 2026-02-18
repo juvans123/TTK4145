@@ -1,10 +1,18 @@
 package ordermanagement
 
+import (
+	c "heis/config") 
 
 type Orders struct {   
 	Cab  []bool
 	Hall [4][2]bool
 }
+
+type ExecutedOrder struct {
+    Floor     int
+    TravelDir c.TravelDirection
+}
+
 
 /* var CurrentOrders Orders = Orders{
 	Cab:  make([]bool, 4),
