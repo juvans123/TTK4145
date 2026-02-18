@@ -20,7 +20,6 @@ func main() {
 	floor_arrived := make(chan int)
 	obstruction_pressed := make(chan bool)
 	stopButton_pressed := make(chan bool)
-	elevioCmd := make(chan elevio.DriverCmd)
 	timerCmd := make(chan bool,1)
 	doorTimeOut := make(chan bool, 1)
 	ordersCmd := make(chan om.Orders)
@@ -38,10 +37,11 @@ func main() {
 	go timer.Run(timerCmd, doorTimeOut)
 
 	// Start FSM som håndterer logikk
-	go fsm.Run(orders_Executed, button_pressed, ordersCmd, doorTimeOut, floor_arrived, obstruction_pressed, stopButton_pressed, elevioCmd, timerCmd)
+	go fsm.Run(orders_Executed, ordersCmd, doorTimeOut, floor_arrived, obstruction_pressed, stopButton_pressed, timerCmd)
 
 	go ordermanagement.Run(button_pressed, ordersCmd, orders_Executed)
 
 	// Start elevio.Run som sender kommandoer til heisen
-	elevio.ExecuteElevioCmds(elevioCmd)
+	select{}
+	
 }

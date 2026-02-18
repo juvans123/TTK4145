@@ -4,7 +4,7 @@ package fsm
 	c "heis/config") */
 
 var Obstruction bool = false
-var currentFloor int = -1 //husk å initialiser
+var currentFloor = -1 //husk å initialiser
 
 
 type State int
@@ -16,22 +16,3 @@ const (
 )
 
 
-
-/* 
-type TravelDirection int
-
-const (
-	TD_Up   TravelDirection = 0
-	TD_Down TravelDirection = 1
-) */
-/* 
-type Orders struct {   
-	Cab  []bool
-	Hall [4][2]bool
-}
-
-var CurrentOrders Orders = Orders{
-	Cab:  make([]bool, 4),
-	Hall: [4][2]bool{},
-}
- */

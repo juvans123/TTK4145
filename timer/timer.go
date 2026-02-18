@@ -17,7 +17,7 @@ import "time"
 			timer.Reset(3 * time.Second)
 
 		case <-timer.C:
-			doorTimeOut <- false
+			doorTimeOut <- true
 		}
 	}
 } 
