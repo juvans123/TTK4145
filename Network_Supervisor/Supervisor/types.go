@@ -15,7 +15,7 @@ func (ps PeerState) String() string {
 	case Alive:
 		return "Alive"
 	case SuspectedDead:
-		return "SuspectedDead"
+		return "SuspectedDead"	
 	case Dead:
 		return "Dead"
 	default:
@@ -27,7 +27,6 @@ type Heartbeat struct {
 	PeerID         string
 	Counter        uint8
 	SuspectedPeers []string // Peers som denne noden betrakter som suspected dead / dead
-
 }
 
 type PeerUpdate struct {
