@@ -1,11 +1,10 @@
 package fsm
 
 /* import (
-	c "heis/config") */
+c "heis/config") */
 
 var Obstruction bool = false
 var currentFloor = -1 //husk å initialiser
-
 
 type State int
 
@@ -14,5 +13,3 @@ const (
 	EB_Moving   State = 1
 	EB_DoorOpen State = 2
 )
-
-

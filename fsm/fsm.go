@@ -8,10 +8,9 @@ import (
 	//t "heis/timer"
 )
 
-func Run(orders_Executed chan<- om.ExecutedOrder,  ordersCmd <-chan om.Orders, doorTimeOut <-chan bool, floor_arrived <-chan int, obstruction_pressed <-chan bool, stopButton_pressed <-chan bool, timerCmd chan<- bool) {
+func Run(orders_Executed chan<- om.ExecutedOrder, ordersCmd <-chan om.Orders, doorTimeOut <-chan bool, floor_arrived <-chan int, obstruction_pressed <-chan bool, stopButton_pressed <-chan bool, timerCmd chan<- bool) {
 
 	numFloors := 4
-
 
 	CurrentOrders := om.Orders{
 		Cab:  make([]bool, 4),
@@ -33,45 +32,45 @@ func Run(orders_Executed chan<- om.ExecutedOrder,  ordersCmd <-chan om.Orders, d
 
 			setButtonLights(CurrentOrders)
 
-			   	switch state {
-					case EB_Idle:
-						if om.HasOrderAtFloor(CurrentOrders, currentFloor) {
-							handleOrderAtCurrentFloor(CurrentOrders, &state, travelDir,  timerCmd, orders_Executed)
-						} else {
-							SetDirectionAndState( travelDir, &state, CurrentOrders)
-						}
-					case EB_DoorOpen:
-						// Hvis døren allerede er åpen på denne etasjen, restart timer og oppdater lys
-						handleOrderAtCurrentFloor(CurrentOrders, &state, travelDir,  timerCmd, orders_Executed)
-					case EB_Moving:
-						// ingenting spesial, heisen vil stoppe når den kommer til gulvet
-					}
+			switch state {
+			case EB_Idle:
+				if om.HasOrderAtFloor(CurrentOrders, currentFloor) {
+					handleOrderAtCurrentFloor(CurrentOrders, &state, travelDir, timerCmd, orders_Executed)
+				} else {
+					SetDirectionAndState(travelDir, &state, CurrentOrders)
+				}
+			case EB_DoorOpen:
+				// Hvis døren allerede er åpen på denne etasjen, restart timer og oppdater lys
+				handleOrderAtCurrentFloor(CurrentOrders, &state, travelDir, timerCmd, orders_Executed)
+			case EB_Moving:
+				// ingenting spesial, heisen vil stoppe når den kommer til gulvet
+			}
 
 		case floor := <-floor_arrived:
 
 			currentFloor = floor
-			
+
 			e.SetFloorIndicator(currentFloor)
 			travelDir = GetTravelDirection(d)
 
 			if ShouldStop(CurrentOrders, currentFloor, d) {
-				StopElevator(&state) 
+				StopElevator(&state)
 
 				if om.HasOrderAtFloor(CurrentOrders, currentFloor) {
 
 					//om.ClearCurrentFloor(&CurrentOrders, currentFloor,  travelDir)
 					orders_Executed <- om.ExecutedOrder{Floor: currentFloor, TravelDir: travelDir}
-					setButtonLights(CurrentOrders) 
-					OpenDoor(&state) 
+					setButtonLights(CurrentOrders)
+					OpenDoor(&state)
 					//state = EB_DoorOpen
 					timerCmd <- true
 				}
 				//break //?
 
 			} else if currentFloor == 0 {
-				ElevatorUp( &state)
+				ElevatorUp(&state)
 			} else if currentFloor == numFloors-1 {
-				ElevatorDown( &state)
+				ElevatorDown(&state)
 			}
 
 		case a := <-obstruction_pressed:
@@ -87,8 +86,8 @@ func Run(orders_Executed chan<- om.ExecutedOrder,  ordersCmd <-chan om.Orders, d
 
 			e.SetDoorOpenLamp(false)
 
-			if(om.HasOrderAtFloor(CurrentOrders, currentFloor)){
-				OpenDoor(&state) 
+			if om.HasOrderAtFloor(CurrentOrders, currentFloor) {
+				OpenDoor(&state)
 				timerCmd <- true
 			} else if ordersExist(CurrentOrders) {
 				state = EB_Moving
@@ -111,14 +110,14 @@ func Run(orders_Executed chan<- om.ExecutedOrder,  ordersCmd <-chan om.Orders, d
 
 }
 
-func handleOrderAtCurrentFloor(CurrentOrders om.Orders, state *State, travelDir c.TravelDirection, 
-	 timerCmd chan<- bool, orders_Executed chan<- om.ExecutedOrder, ) {
+func handleOrderAtCurrentFloor(CurrentOrders om.Orders, state *State, travelDir c.TravelDirection,
+	timerCmd chan<- bool, orders_Executed chan<- om.ExecutedOrder) {
 
 	if om.HasOrderAtFloor(CurrentOrders, currentFloor) {
 		OpenDoor(state)
 		timerCmd <- true
 		orders_Executed <- om.ExecutedOrder{Floor: currentFloor, TravelDir: travelDir}
-		setButtonLights(CurrentOrders) 
+		setButtonLights(CurrentOrders)
 	}
 }
 
@@ -133,23 +132,23 @@ func GetTravelDirection(motordir e.MotorDirection) c.TravelDirection {
 	}
 }
 
-func ClearLightsCurrentFloor( travelDir c.TravelDirection, orders om.Orders) {
-	e.SetButtonLamp(e.BT_Cab, currentFloor,false )
+func ClearLightsCurrentFloor(travelDir c.TravelDirection, orders om.Orders) {
+	e.SetButtonLamp(e.BT_Cab, currentFloor, false)
 
 	switch travelDir {
 	case c.TD_Up:
 		if om.OrdersAbove(orders, currentFloor) {
-			e.SetButtonLamp(e.BT_HallUp, currentFloor,false )
+			e.SetButtonLamp(e.BT_HallUp, currentFloor, false)
 		} else {
-			e.SetButtonLamp(e.BT_HallDown, currentFloor,false )
-			e.SetButtonLamp(e.BT_HallUp, currentFloor,false )
+			e.SetButtonLamp(e.BT_HallDown, currentFloor, false)
+			e.SetButtonLamp(e.BT_HallUp, currentFloor, false)
 		}
 	case c.TD_Down:
 		if om.OrdersBelow(orders, currentFloor) {
-			e.SetButtonLamp(e.BT_HallDown, currentFloor,false )
+			e.SetButtonLamp(e.BT_HallDown, currentFloor, false)
 		} else {
-			e.SetButtonLamp(e.BT_HallDown, currentFloor,false )
-			e.SetButtonLamp(e.BT_HallUp, currentFloor,false )
+			e.SetButtonLamp(e.BT_HallDown, currentFloor, false)
+			e.SetButtonLamp(e.BT_HallUp, currentFloor, false)
 		}
 	}
 }
@@ -177,22 +176,20 @@ func ShouldStop(orders om.Orders, currentFloor int, dir e.MotorDirection) bool {
 	return false
 }
 
-
-
-func setButtonLights(orders om.Orders ) {
+func setButtonLights(orders om.Orders) {
 	for floor := 0; floor < len(orders.Cab); floor++ {
-		e.SetButtonLamp(e.BT_Cab, floor,orders.Cab[floor])
-		e.SetButtonLamp(e.BT_HallUp, floor,orders.Hall[floor][e.BT_HallUp] )
-		e.SetButtonLamp(e.BT_HallDown, floor,orders.Hall[floor][e.BT_HallDown] )
+		e.SetButtonLamp(e.BT_Cab, floor, orders.Cab[floor])
+		e.SetButtonLamp(e.BT_HallUp, floor, orders.Hall[floor][e.BT_HallUp])
+		e.SetButtonLamp(e.BT_HallDown, floor, orders.Hall[floor][e.BT_HallDown])
 	}
 }
 
-func ElevatorDown( state *State) {
+func ElevatorDown(state *State) {
 	e.SetMotorDirection(e.MD_Down)
 	*state = EB_Moving
 }
 
-func ElevatorUp( state *State) {
+func ElevatorUp(state *State) {
 	e.SetMotorDirection(e.MD_Up)
 	*state = EB_Moving
 }
@@ -203,12 +200,12 @@ func SetDirectionAndState(travelDir c.TravelDirection, state *State, orders om.O
 	*state = EB_Moving
 }
 
-func StopElevator(state *State ) {
+func StopElevator(state *State) {
 	e.SetMotorDirection(e.MD_Stop)
 	*state = EB_Idle
 }
 
-func OpenDoor(state *State ) {
+func OpenDoor(state *State) {
 	e.SetDoorOpenLamp(true)
 	*state = EB_DoorOpen
 
