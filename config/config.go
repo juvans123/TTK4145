@@ -1,9 +1,5 @@
 package config
 
-import (
-	"heis/elevio"
-)
-
 
 type TravelDirection int
 
@@ -14,15 +10,24 @@ const (
 
 type OrderEvent struct{
 	Floor int
-	Button elevio.ButtonType
+	Button ButtonType
 }
 
 type ClearEvent struct{
 	Floor int
 	Dir TravelDirection
 }
+ 
+type ButtonType int
 
-type OrdersSnapshot struct {
-	Cab []bool
-	Hall [4][2]bool
+const (
+	BT_HallUp   ButtonType = 0
+	BT_HallDown ButtonType = 1
+	BT_Cab      ButtonType = 2
+)
+
+
+type ButtonEvent struct {
+	Floor  int
+	Button ButtonType
 }

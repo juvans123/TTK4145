@@ -16,7 +16,7 @@ func main() {
 	
 
 	// Kanaler for kommunikasjon
-	buttonCh := make(chan elevio.ButtonEvent)
+	buttonCh := make(chan config.ButtonEvent)
 	floorCh := make(chan int)
 	obstructionCh := make(chan bool)
 	stopButtonCh := make(chan bool)
@@ -24,7 +24,8 @@ func main() {
 	//doorTimeOutCh := make(chan bool)
 	//ordersCmd := make(chan om.Orders)
 
-	ordersCh := make(chan om.Orders, 10)
+	omOrdersCh := make(chan om.Orders, 10)
+	//lightsOrdersCh = make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
 
 	// Start polling goroutines
@@ -36,9 +37,10 @@ func main() {
 	// Start timer
 	//go timer.Run(timerCmdCh, doorTimeOutCh)
 
-	go om.Run(buttonCh, clearCh, ordersCh)
+	go om.Run(buttonCh, clearCh, omOrdersCh)
 	t := timer.NewDoorTimer()
-	go fsm.Run(t,floorCh, ordersCh, obstructionCh, stopButtonCh, clearCh)
+	go fsm.Run(t,floorCh, omOrdersCh, obstructionCh, stopButtonCh, clearCh)
+	//go elevio.Run(lightsOrdersCh)
 
 	// Start elevio.Run som sender kommandoer til heisen
 

@@ -2,15 +2,15 @@ package ordermanagement
 
 import (
 	"heis/config"
-	"heis/elevio"
 )
 
 const NumFloors = 4
 
 func Run(
-	buttonCh <- chan elevio.ButtonEvent, // fra elevio poller
+	buttonCh <- chan config.ButtonEvent, // fra elevio poller
 	clearCh <- chan config.ClearEvent, // fra FSM når dør ordre er servert
-	ordersCh chan <- Orders, // snapshot til FSM/lys
+	omOrdersCh chan <- Orders, // snapshot til FSM
+
 ){
 	orders := NewOrders()
 	// noe med publish ??
@@ -18,11 +18,11 @@ func Run(
 		select{
 		case btn := <-buttonCh:
 			addOrderFromButtonEvent(btn, &orders)
-			ordersCh <- orders
+			omOrdersCh <- orders
 			// publish ??
 		case cl := <-clearCh:
 			ClearAtFloor(&orders, cl.Floor, cl.Dir)
-			ordersCh <- orders
+			omOrdersCh <- orders
 			// publish ??
 		}
 	}
@@ -41,16 +41,16 @@ func NewOrders() Orders {
 	return o
 }
 
-func addOrderFromButtonEvent(btn elevio.ButtonEvent, orders *Orders) {
+func addOrderFromButtonEvent(btn config.ButtonEvent, orders *Orders) {
 	switch btn.Button {
-	case elevio.BT_Cab:
+	case config.BT_Cab:
 		orders.Cab[btn.Floor] = true
 
-	case elevio.BT_HallUp:
-		orders.Hall[btn.Floor][elevio.BT_HallUp] = true
+	case config.BT_HallUp:
+		orders.Hall[btn.Floor][config.BT_HallUp] = true
 
-	case elevio.BT_HallDown:
-		orders.Hall[btn.Floor][elevio.BT_HallDown] = true
+	case config.BT_HallDown:
+		orders.Hall[btn.Floor][config.BT_HallDown] = true
 	}
 }
 
@@ -60,14 +60,14 @@ func ClearAtFloor(orders *Orders, floor int, travelDir config.TravelDirection) {
 	}
 	switch travelDir {
 	case config.TD_Up:
-		orders.Hall[floor][elevio.BT_HallUp] = false
+		orders.Hall[floor][config.BT_HallUp] = false
 		if !OrdersAbove(orders, floor) {
-			orders.Hall[floor][elevio.BT_HallDown] = false
+			orders.Hall[floor][config.BT_HallDown] = false
 		} 
 	case config.TD_Down:
-		orders.Hall[floor][elevio.BT_HallDown] = false
+		orders.Hall[floor][config.BT_HallDown] = false
 		if !OrdersBelow(orders, floor) {
-			orders.Hall[floor][elevio.BT_HallUp] = false
+			orders.Hall[floor][config.BT_HallUp] = false
 		}
 	}
 
@@ -93,6 +93,6 @@ func OrdersBelow(orders *Orders, currentFloor int) bool {
 
 func HasOrderAtFloor(orders *Orders, floor int) bool {
 	return orders.Cab[floor] ||
-		orders.Hall[floor][elevio.BT_HallUp]||
-		orders.Hall[floor][elevio.BT_HallDown]
+		orders.Hall[floor][config.BT_HallUp]||
+		orders.Hall[floor][config.BT_HallDown]
 }

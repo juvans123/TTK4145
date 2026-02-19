@@ -18,7 +18,7 @@ const doorOpenDuration = 3 * time.Second
 func Run(
 	timer DoorTimer,
 	floorCh <-chan int,
-	ordersCh <-chan om.Orders,
+	omOrdersCh <-chan om.Orders,
 	obstrCh <-chan bool,
 	stopCh <-chan bool,
 	clearCh chan<- config.ClearEvent,
@@ -37,7 +37,7 @@ func Run(
 		select {
 
 		// -------- Orders snapshot fra OM --------
-		case newOrders := <-ordersCh:
+		case newOrders := <-omOrdersCh:
 			e.Orders = newOrders
 
 			if stopPressed {
@@ -170,17 +170,17 @@ func shouldStop(e *Elevator) bool {
 	}
 	switch e.Dir{
 	case config.TD_Up:
-		if e.Orders.Hall[floor][elevio.BT_HallUp]{
+		if e.Orders.Hall[floor][config.BT_HallUp]{
 			return true
 		}
-		if e.Orders.Hall[floor][elevio.BT_HallDown] && !om.OrdersAbove(&e.Orders, floor){
+		if e.Orders.Hall[floor][config.BT_HallDown] && !om.OrdersAbove(&e.Orders, floor){
 			return true
 		}
 	case config.TD_Down:
-		if e.Orders.Hall[floor][elevio.BT_HallDown]{
+		if e.Orders.Hall[floor][config.BT_HallDown]{
 			return true
 		}
-		if e.Orders.Hall[floor][elevio.BT_HallUp] && !om.OrdersBelow(&e.Orders, floor){
+		if e.Orders.Hall[floor][config.BT_HallUp] && !om.OrdersBelow(&e.Orders, floor){
 			return true
 		}
 	}

@@ -23,36 +23,3 @@ const (
 )
 
 
-type ButtonType int
-
-const (
-	BT_HallUp   ButtonType = 0
-	BT_HallDown ButtonType = 1
-	BT_Cab      ButtonType = 2
-)
-
-
-type ButtonEvent struct {
-	Floor  int
-	Button ButtonType
-}
-
-// Kommandoer
-/* type ElevioCmdType int
-
-const (
-	SetMotorDirection ElevioCmdType = iota
-	SetButtonLamp
-	SetFloorIndicator
-	SetDoorLamp
-	SetStopLamp
-)
-
-type DriverCmd struct {
-	Type ElevioCmdType
-	MotorDir MotorDirection
-	Button ButtonType
-	Floor  int
-	Value  bool
-	IndicatorFloor int
-} */
