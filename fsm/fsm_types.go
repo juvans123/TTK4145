@@ -1,18 +1,29 @@
 package fsm
 
-
+import (
+	"heis/config"
+	om "heis/ordermanagement"
+)
 
 var Obstruction bool = false
 var currentFloor int = -1 //husk å initialiser
 
 
-type State int
+type Behavior int
 
 const (
-	EB_Idle     State = 0
-	EB_Moving   State = 1
-	EB_DoorOpen State = 2
+	EB_Idle Behavior = iota
+	EB_Moving   
+	EB_DoorOpen 
 )
+
+type Elevator struct {
+	Floor int
+	Dir config.TravelDirection
+	Behavior Behavior
+	Orders om.Orders
+}
+
 
 /* 
 type TravelDirection int

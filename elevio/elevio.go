@@ -8,23 +8,6 @@ import (
 	"time"
 )
 
-func ExecuteElevioCmds(elevioCmd <-chan DriverCmd) {
-	for cmd := range elevioCmd {
-		switch cmd.Type {
-		case SetButtonLamp:
-			setButtonLamp(cmd.Button, cmd.Floor, cmd.Value)
-		case SetFloorIndicator:
-			setFloorIndicator(cmd.Floor)
-		case SetMotorDirection:
-			setMotorDirection(cmd.MotorDir)
-		case SetDoorLamp:
-			setDoorOpenLamp(cmd.Value)
-		case SetStopLamp:
-			setStopLamp(cmd.Value)
-		}
-	}
-}
-
 func Init(addr string, numFloors int) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
@@ -40,23 +23,23 @@ func Init(addr string, numFloors int) {
 	_initialized = true
 }
 
-func setMotorDirection(dir MotorDirection) {
+func SetMotorDirection(dir MotorDirection) {
 	write([4]byte{1, byte(dir), 0, 0})
 }
 
-func setButtonLamp(button ButtonType, floor int, value bool) {
+func SetButtonLamp(button ButtonType, floor int, value bool) {
 	write([4]byte{2, byte(button), byte(floor), toByte(value)})
 }
 
-func setFloorIndicator(floor int) {
+func SetFloorIndicator(floor int) {
 	write([4]byte{3, byte(floor), 0, 0})
 }
 
-func setDoorOpenLamp(value bool) {
+func SetDoorOpenLamp(value bool) {
 	write([4]byte{4, toByte(value), 0, 0})
 }
 
-func setStopLamp(value bool) {
+func SetStopLamp(value bool) {
 	write([4]byte{5, toByte(value), 0, 0})
 }
 

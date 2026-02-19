@@ -1,13 +1,13 @@
 package fsm
 
 import (
-	"fmt"
-	c "heis/config"
-	e "heis/elevio"
+	"heis/config"
+	"heis/elevio"
 	om "heis/ordermanagement"
+	"time"
 )
 
-func Run(button_pressed <-chan e.ButtonEvent, ordersCmd <-chan om.Orders, doorTimeOut <-chan bool, floor_arrived <-chan int, obstruction_pressed <-chan bool, stopButton_pressed <-chan bool, elevioCmd chan<- e.DriverCmd, timerCmd chan<- bool) {
+/* func Run(button_pressed <-chan e.ButtonEvent, ordersCmd <-chan om.Orders, doorTimeOut <-chan bool, floor_arrived <-chan int, obstruction_pressed <-chan bool, stopButton_pressed <-chan bool, elevioCmd chan<- e.DriverCmd, timerCmd chan<- bool) {
 
 	numFloors := 4
 
@@ -42,7 +42,7 @@ func Run(button_pressed <-chan e.ButtonEvent, ordersCmd <-chan om.Orders, doorTi
 			travelDir = GetTravelDirection(d)
 
 			if ShouldStop(CurrentOrders, currentFloor, d) {
-				StopElevator(state, elevioCmd)
+				state = StopElevator(elevioCmd)
 
 				if om.HasOrderAtFloor(CurrentOrders, currentFloor) {
 
@@ -91,8 +91,231 @@ func Run(button_pressed <-chan e.ButtonEvent, ordersCmd <-chan om.Orders, doorTi
 	}
 
 }
+ */
+ type DoorTimer interface {
+	Reset(d time.Duration)
+	Stop()
+	Timeout() <-chan struct{}
+}
+const doorOpenDuration = 3 * time.Second
 
-func GetTravelDirection(motordir e.MotorDirection) c.TravelDirection {
+/* func Run(
+	elevioCmd chan<- elevio.DriverCmd,
+    floorCh <-chan int,             
+    btnCh <-chan elevio.ButtonEvent,            
+    obstructionCh <-chan bool,       
+    stopButtonCh <-chan bool,    
+	doorTimeoutCh <- chan struct{},
+	doorTimerResetCh chan <- time.Duration, 
+){
+
+} */
+
+func setMotor(dir config.TravelDirection) {
+	switch dir {
+	case config.TD_Up:
+		elevio.SetMotorDirection(elevio.MD_Up)
+	case config.TD_Down:
+		elevio.SetMotorDirection(elevio.MD_Down)
+	default:
+		elevio.SetMotorDirection(elevio.MD_Stop)
+	}
+}
+
+func stopMotor() {
+	elevio.SetMotorDirection(elevio.MD_Stop)
+}
+
+func openDoor(t DoorTimer) {
+	elevio.SetDoorOpenLamp(true)
+	t.Reset(doorOpenDuration)
+}
+
+func closeDoor(t DoorTimer) {
+	elevio.SetDoorOpenLamp(false)
+	t.Stop()
+}
+
+
+func shouldStop(e *Elevator) bool {
+	floor := e.Floor
+	if floor < 0 {
+		return false
+	}
+
+	if e.Orders.Cab[floor]{
+		return true
+	}
+	switch e.Dir{
+	case config.TD_Up:
+		if e.Orders.Hall[floor][elevio.BT_HallUp]{
+			return true
+		}
+		if e.Orders.Hall[floor][elevio.BT_HallDown] && !om.OrdersAbove(&e.Orders, floor){
+			return true
+		}
+	case config.TD_Down:
+		if e.Orders.Hall[floor][elevio.BT_HallDown]{
+			return true
+		}
+		if e.Orders.Hall[floor][elevio.BT_HallUp] && !om.OrdersBelow(&e.Orders, floor){
+			return true
+		}
+	}
+	return false
+}
+
+func chooseDirection(e *Elevator) (config.TravelDirection, Behavior){
+	floor := e.Floor
+	if floor < 0{
+		return e.Dir, EB_Idle
+	}
+
+	switch e.Dir {
+	case config.TD_Up:
+		if om.OrdersAbove(&e.Orders, floor) {
+			return config.TD_Up, EB_Moving
+		}
+		if om.OrdersBelow(&e.Orders, floor) {
+			return config.TD_Down, EB_Moving
+		}
+	case config.TD_Down:
+		if om.OrdersBelow(&e.Orders, floor) {
+			return config.TD_Down, EB_Moving
+		}
+		if om.OrdersAbove(&e.Orders, floor) {
+			return config.TD_Up, EB_Moving
+		}
+	}
+	return e.Dir, EB_Idle
+}
+
+func hasOrderAtThisFloor(e *Elevator) bool {
+	if e.Floor < 0 {
+		return false
+	}
+	return om.HasOrderAtFloor(&e.Orders, e.Floor)
+}
+
+
+func Run(
+	timer DoorTimer,
+	floorCh <-chan int,
+	ordersCh <-chan om.Orders,
+	obstrCh <-chan bool,
+	stopCh <-chan bool,
+	clearCh chan<- config.ClearEvent,
+) {
+	e := Elevator{
+		Floor:    -1,
+		Dir:      config.TD_Up,
+		Behavior: EB_Idle,
+		Orders:   om.NewOrders(),
+	}
+
+	obstructed := false
+	stopPressed := false
+
+	for {
+		select {
+
+		// -------- Orders snapshot fra OM --------
+		case newOrders := <-ordersCh:
+			e.Orders = newOrders
+
+			if stopPressed {
+				// Ikke start å kjøre når stopp er inne
+				continue
+			}
+
+			// Hvis vi er idle og står i etasje og har ordre her: åpne dør direkte
+			if e.Behavior == EB_Idle && hasOrderAtThisFloor(&e) {
+				// velg “service retning” basert på dagens dir (brukes i ClearAtFloor-policy)
+				if e.Floor >= 0 {
+					e.Behavior = EB_DoorOpen
+					openDoor(timer)
+					clearCh <- config.ClearEvent{Floor: e.Floor, Dir: e.Dir}
+				}
+				continue
+			}
+
+			// Hvis idle: start å kjøre hvis det finnes ordre et sted
+			if e.Behavior == EB_Idle {
+				dir, beh := chooseDirection(&e)
+				e.Dir, e.Behavior = dir, beh
+				if e.Behavior == EB_Moving {
+					setMotor(e.Dir)
+				}
+			}
+
+		// -------- Floor sensor --------
+		case floor := <-floorCh:
+			e.Floor = floor
+			elevio.SetFloorIndicator(floor)
+
+			if e.Behavior == EB_Moving && !stopPressed {
+				if shouldStop(&e) {
+					stopMotor()
+					e.Behavior = EB_DoorOpen
+					openDoor(timer)
+
+					// Be OM kvittere ordre i denne etasjen
+					clearCh <- config.ClearEvent{Floor: e.Floor, Dir: e.Dir}
+				}
+			}
+
+		// -------- Door timeout --------
+		case <-timer.Timeout():
+			if e.Behavior != EB_DoorOpen {
+				continue
+			}
+			if obstructed || stopPressed {
+				timer.Reset(doorOpenDuration)
+				continue
+			}
+
+			closeDoor(timer)
+			dir, beh := chooseDirection(&e)
+			e.Dir, e.Behavior = dir, beh
+			if e.Behavior == EB_Moving {
+				setMotor(e.Dir)
+			}
+
+		// -------- Obstruction --------
+		case obs := <-obstrCh:
+			obstructed = obs
+
+		// -------- Stop button --------
+		case sp := <-stopCh:
+			stopPressed = sp
+			elevio.SetStopLamp(sp)
+
+			if sp {
+				stopMotor()
+				// Åpne dør hvis vi står i etasje
+				if e.Floor >= 0 {
+					e.Behavior = EB_DoorOpen
+					openDoor(timer)
+				} else {
+					e.Behavior = EB_Idle
+				}
+			} else {
+				// Stopp sluppet: gå tilbake til normal drift
+				if e.Behavior == EB_DoorOpen {
+					timer.Reset(doorOpenDuration)
+				} else if e.Behavior == EB_Idle {
+					dir, beh := chooseDirection(&e)
+					e.Dir, e.Behavior = dir, beh
+					if e.Behavior == EB_Moving {
+						setMotor(e.Dir)
+					}
+				}
+			}
+		}
+	}
+}
+
+/* func GetTravelDirection(motordir e.MotorDirection) c.TravelDirection {
 	switch motordir {
 	case e.MD_Up:
 		return c.TD_Up
@@ -151,34 +374,6 @@ func ShouldStop(orders om.Orders, currentFloor int, dir e.MotorDirection) bool {
 	return false
 }
 
-/* func ClearCurrentFloor(orders Orders, currentFloor int, elevioCmd chan<- e.DriverCmd, travelDir TravelDirection) {
-	orders.Cab[currentFloor] = false
-	elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_Cab, Floor: currentFloor, Value: false}
-
-	switch travelDir {
-	case TD_Up:
-		if OrdersAbove(orders, currentFloor) {
-			CurrentOrders.Hall[currentFloor][e.BT_HallUp] = false
-			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallUp, Floor: currentFloor, Value: false}
-		} else {
-			CurrentOrders.Hall[currentFloor][e.BT_HallUp] = false
-			CurrentOrders.Hall[currentFloor][e.BT_HallDown] = false
-			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallDown, Floor: currentFloor, Value: false}
-			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallUp, Floor: currentFloor, Value: false}
-		}
-	case TD_Down:
-		if OrdersBelow(orders, currentFloor) {
-			CurrentOrders.Hall[currentFloor][e.BT_HallDown] = false
-			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallDown, Floor: currentFloor, Value: false}
-		} else {
-			CurrentOrders.Hall[currentFloor][e.BT_HallUp] = false
-			CurrentOrders.Hall[currentFloor][e.BT_HallDown] = false
-			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallDown, Floor: currentFloor, Value: false}
-			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallUp, Floor: currentFloor, Value: false}
-		}
-	}
-
-} */
 
 func setButtonLights(orders om.Orders, elevioCmd chan<- e.DriverCmd) {
 	for floor := 0; floor < len(orders.Cab); floor++ {
@@ -188,26 +383,21 @@ func setButtonLights(orders om.Orders, elevioCmd chan<- e.DriverCmd) {
 	}
 }
 
-func ElevatorDown(elevioCmd chan<- e.DriverCmd, state State) {
+func ElevatorDown(elevioCmd chan<- e.DriverCmd) {
 	elevioCmd <- e.DriverCmd{Type: e.SetMotorDirection, MotorDir: e.MD_Down}
-	state = EB_Moving
 }
 
-func ElevatorUp(elevioCmd chan<- e.DriverCmd, state State) {
+func ElevatorUp(elevioCmd chan<- e.DriverCmd) {
 	elevioCmd <- e.DriverCmd{Type: e.SetMotorDirection, MotorDir: e.MD_Up}
-	state = EB_Moving
 }
 
-func SetDirectionAndState(elevioCmd chan<- e.DriverCmd, travelDir c.TravelDirection, state State, orders om.Orders) {
+func SetDirectionAndState(elevioCmd chan<- e.DriverCmd, travelDir c.TravelDirection, orders om.Orders) {
 	direction := NextMove(orders, currentFloor, travelDir)
 	elevioCmd <- e.DriverCmd{Type: e.SetMotorDirection, MotorDir: direction}
-	state = EB_Moving
 }
 
-func StopElevator(state State, elevioCmd chan<- e.DriverCmd) {
-
+func StopElevator(elevioCmd chan<- e.DriverCmd){
 	elevioCmd <- e.DriverCmd{Type: e.SetMotorDirection, MotorDir: e.MD_Stop}
-	state = EB_Idle
 }
 
 func OpenDoor(state State, elevioCmd chan<- e.DriverCmd) {
@@ -249,6 +439,42 @@ func ordersExist(orders om.Orders) bool {
 	return false
 }
 
+func initElevator(elevioCmd chan<- e.DriverCmd) {
+	elevioCmd <- e.DriverCmd{Type: e.SetDoorLamp, Value: false}
+	elevioCmd <- e.DriverCmd{Type: e.SetMotorDirection, MotorDir: e.MD_Down}
+
+}
+ */
+/* func ClearCurrentFloor(orders Orders, currentFloor int, elevioCmd chan<- e.DriverCmd, travelDir TravelDirection) {
+	orders.Cab[currentFloor] = false
+	elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_Cab, Floor: currentFloor, Value: false}
+
+	switch travelDir {
+	case TD_Up:
+		if OrdersAbove(orders, currentFloor) {
+			CurrentOrders.Hall[currentFloor][e.BT_HallUp] = false
+			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallUp, Floor: currentFloor, Value: false}
+		} else {
+			CurrentOrders.Hall[currentFloor][e.BT_HallUp] = false
+			CurrentOrders.Hall[currentFloor][e.BT_HallDown] = false
+			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallDown, Floor: currentFloor, Value: false}
+			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallUp, Floor: currentFloor, Value: false}
+		}
+	case TD_Down:
+		if OrdersBelow(orders, currentFloor) {
+			CurrentOrders.Hall[currentFloor][e.BT_HallDown] = false
+			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallDown, Floor: currentFloor, Value: false}
+		} else {
+			CurrentOrders.Hall[currentFloor][e.BT_HallUp] = false
+			CurrentOrders.Hall[currentFloor][e.BT_HallDown] = false
+			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallDown, Floor: currentFloor, Value: false}
+			elevioCmd <- e.DriverCmd{Type: e.SetButtonLamp, Button: e.BT_HallUp, Floor: currentFloor, Value: false}
+		}
+	}
+
+} */
+
+
 /* func UpdateOrdersAndLamps(ButtonEvent e.ButtonEvent, elevioCmd chan<- e.DriverCmd) {
 	switch ButtonEvent.Button {
 	case e.BT_Cab:
@@ -281,8 +507,4 @@ func SetButtonLamps(ButtonEvent e.ButtonEvent, elevioCmd chan<- e.DriverCmd){
 		}
 	}
 */
-func initElevator(elevioCmd chan<- e.DriverCmd) {
-	elevioCmd <- e.DriverCmd{Type: e.SetDoorLamp, Value: false}
-	elevioCmd <- e.DriverCmd{Type: e.SetMotorDirection, MotorDir: e.MD_Down}
 
-}

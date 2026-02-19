@@ -2,7 +2,7 @@ package timer
 
 import "time"
 
-func Run(timerCmd <-chan bool, doorTimeOut chan<- bool) {
+/* func Run(timerCmd <-chan bool, doorTimeOut chan<- bool) {
 
 	for {
 		start := <-timerCmd
@@ -13,4 +13,60 @@ func Run(timerCmd <-chan bool, doorTimeOut chan<- bool) {
 		}
 	}
 }
-
+ */
+ 
+type DoorTimer struct {
+	 timer   *time.Timer
+	 timeout chan struct{}
+ }
+ 
+ func NewDoorTimer() *DoorTimer {
+	 t := &DoorTimer{
+		 timer:   time.NewTimer(time.Hour),      // “arm” den langt frem
+		 timeout: make(chan struct{}, 1),
+	 }
+	 // Stopp den umiddelbart så den ikke fyrer av ved oppstart
+	 if !t.timer.Stop() {
+		 select {
+		 case <-t.timer.C:
+		 default:
+		 }
+	 }
+ 
+	 // ÉN goroutine som lever hele tiden:
+	 go func() {
+		 for range t.timer.C {
+			 // non-blocking signal (slik at vi ikke hoper opp)
+			 select {
+			 case t.timeout <- struct{}{}:
+			 default:
+			 }
+		 }
+	 }()
+ 
+	 return t
+ }
+ 
+ func (t *DoorTimer) Reset(d time.Duration) {
+	 if !t.timer.Stop() {
+		 select {
+		 case <-t.timer.C:
+		 default:
+		 }
+	 }
+	 t.timer.Reset(d)
+ }
+ 
+ func (t *DoorTimer) Stop() {
+	 if !t.timer.Stop() {
+		 select {
+		 case <-t.timer.C:
+		 default:
+		 }
+	 }
+ }
+ 
+ func (t *DoorTimer) Timeout() <-chan struct{} {
+	 return t.timeout
+ }
+ 

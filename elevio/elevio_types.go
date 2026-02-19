@@ -38,7 +38,7 @@ type ButtonEvent struct {
 }
 
 // Kommandoer
-type ElevioCmdType int
+/* type ElevioCmdType int
 
 const (
 	SetMotorDirection ElevioCmdType = iota
@@ -50,12 +50,9 @@ const (
 
 type DriverCmd struct {
 	Type ElevioCmdType
-
 	MotorDir MotorDirection
-
 	Button ButtonType
 	Floor  int
 	Value  bool
-
 	IndicatorFloor int
-}
+} */

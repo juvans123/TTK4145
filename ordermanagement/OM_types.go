@@ -3,7 +3,7 @@ package ordermanagement
 
 type Orders struct {   
 	Cab  []bool
-	Hall [4][2]bool
+	Hall [][]bool
 }
 
 /* var CurrentOrders Orders = Orders{
