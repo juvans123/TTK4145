@@ -41,34 +41,20 @@ func NewOrders() Orders {
 	return o
 }
 
-// UpdateOrders oppdaterer ordrelisten basert på knappetrykk
 func addOrderFromButtonEvent(btn elevio.ButtonEvent, orders *Orders) {
 	switch btn.Button {
 	case elevio.BT_Cab:
-		// Cab-knapp (lokal til denne elevatoren)
 		orders.Cab[btn.Floor] = true
 
 	case elevio.BT_HallUp:
-		// Hall opp-knapp (delt med alle elevatorer)
 		orders.Hall[btn.Floor][elevio.BT_HallUp] = true
 
 	case elevio.BT_HallDown:
-		// Hall ned-knapp (delt med alle elevatorer)
 		orders.Hall[btn.Floor][elevio.BT_HallDown] = true
 	}
 }
 
-/* func clearAllOrders(orders *Orders) {
-	for floor := 0; floor < 4; floor++ {
-
-		orders.Cab[floor] = false
-		orders.Hall[floor][0] = false
-		orders.Hall[floor][1] = false
-	}
-} */
-
 func ClearAtFloor(orders *Orders, floor int, travelDir config.TravelDirection) {
-	//elevioCmd <- elevio.DriverCmd{Type: elevio.SetButtonLamp, Button: elevio.BT_Cab, Floor: currentFloor, Value: false}
 	if floor >= 0 && floor < len(orders.Cab){
 		orders.Cab[floor] = false
 	}
@@ -110,31 +96,3 @@ func HasOrderAtFloor(orders *Orders, floor int) bool {
 		orders.Hall[floor][elevio.BT_HallUp]||
 		orders.Hall[floor][elevio.BT_HallDown]
 }
-
-/* type Channels struct {
-	HallPressed <-chan HallButtonEvent
-	CabPressed <-chan CabButtonEvent
-	HallCleared <-chan ClearHallEvent
-	CabCleared <-chan ClearCabEvent
-
-	//PeerUpdate <-chan PeerUpdateWrap
-	RemoteState <-chan ElevatorState
-
-	OrdersOut chan<- Orders
-}
-
-// type PeerUpdateWrap
-
-func Run(myID string, ch Channels){
-	ws := WorldState{
-		HallRequests: // FIKS DETTE
-		ElevStates: map[string]ElevatorState{},
-		Alive: map[string]bool{},
-	}
-	ws.Alive[myID] = true
-	// mye greier her med triggerReassign
-
-	ch.OrdersOut <- Orders{Cab: append([]bool(nil), myCab...)}
-
-}
-*/
