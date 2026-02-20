@@ -7,15 +7,15 @@ import (
 const NumFloors = 4
 
 func Run(
-	buttonCh <- chan config.ButtonEvent, // fra elevio poller
-	clearCh <- chan config.ClearEvent, // fra FSM når dør ordre er servert
-	omOrdersCh chan <- Orders, // snapshot til FSM
+	buttonCh <-chan config.ButtonEvent, // fra elevio poller
+	clearCh <-chan config.ClearEvent, // fra FSM når dør ordre er servert
+	omOrdersCh chan<- Orders, // snapshot til FSM
 
-){
+) {
 	orders := NewOrders()
 	// noe med publish ??
 	for {
-		select{
+		select {
 		case btn := <-buttonCh:
 			addOrderFromButtonEvent(btn, &orders)
 			omOrdersCh <- orders
@@ -55,7 +55,7 @@ func addOrderFromButtonEvent(btn config.ButtonEvent, orders *Orders) {
 }
 
 func ClearAtFloor(orders *Orders, floor int, travelDir config.TravelDirection) {
-	if floor >= 0 && floor < len(orders.Cab){
+	if floor >= 0 && floor < len(orders.Cab) {
 		orders.Cab[floor] = false
 	}
 	switch travelDir {
@@ -63,7 +63,7 @@ func ClearAtFloor(orders *Orders, floor int, travelDir config.TravelDirection) {
 		orders.Hall[floor][config.BT_HallUp] = false
 		if !OrdersAbove(orders, floor) {
 			orders.Hall[floor][config.BT_HallDown] = false
-		} 
+		}
 	case config.TD_Down:
 		orders.Hall[floor][config.BT_HallDown] = false
 		if !OrdersBelow(orders, floor) {
@@ -93,6 +93,6 @@ func OrdersBelow(orders *Orders, currentFloor int) bool {
 
 func HasOrderAtFloor(orders *Orders, floor int) bool {
 	return orders.Cab[floor] ||
-		orders.Hall[floor][config.BT_HallUp]||
+		orders.Hall[floor][config.BT_HallUp] ||
 		orders.Hall[floor][config.BT_HallDown]
 }
