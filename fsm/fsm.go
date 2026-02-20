@@ -39,9 +39,9 @@ func Run(
 		// -------- Orders snapshot fra OM --------
 		case newOrders := <-omOrdersCh:
 			e.Orders = newOrders
+			updateButtonLights(&e)
 
 			if stopPressed {
-				// Ikke start å kjøre når stopp er inne
 				continue
 			}
 
@@ -50,7 +50,7 @@ func Run(
 				// velg “service retning” basert på dagens dir (brukes i ClearAtFloor-policy)
 				if e.Floor >= 0 {
 					e.Behavior = EB_DoorOpen
-					openDoor(timer)
+					openDoorAndSetLamp(timer)
 					clearCh <- config.ClearEvent{Floor: e.Floor, Dir: e.Dir}
 				}
 				continue
@@ -74,7 +74,7 @@ func Run(
 				if shouldStop(&e) {
 					stopMotor()
 					e.Behavior = EB_DoorOpen
-					openDoor(timer)
+					openDoorAndSetLamp(timer)
 
 					// Be OM kvittere ordre i denne etasjen
 					clearCh <- config.ClearEvent{Floor: e.Floor, Dir: e.Dir}
@@ -91,7 +91,7 @@ func Run(
 				continue
 			}
 
-			closeDoor(timer)
+			closeDoorAndResetLamp(timer)
 			dir, beh := chooseDirection(&e)
 			e.Dir, e.Behavior = dir, beh
 			if e.Behavior == EB_Moving {
@@ -112,7 +112,7 @@ func Run(
 				// Åpne dør hvis vi står i etasje
 				if e.Floor >= 0 {
 					e.Behavior = EB_DoorOpen
-					openDoor(timer)
+					openDoorAndSetLamp(timer)
 				} else {
 					e.Behavior = EB_Idle
 				}
@@ -148,12 +148,12 @@ func stopMotor() {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 }
 
-func openDoor(t DoorTimer) {
+func openDoorAndSetLamp(t DoorTimer) {
 	elevio.SetDoorOpenLamp(true)
 	t.Reset(doorOpenDuration)
 }
 
-func closeDoor(t DoorTimer) {
+func closeDoorAndResetLamp(t DoorTimer) {
 	elevio.SetDoorOpenLamp(false)
 	t.Stop()
 }
@@ -219,3 +219,10 @@ func hasOrderAtThisFloor(e *Elevator) bool {
 	return om.HasOrderAtFloor(&e.Orders, e.Floor)
 }
 
+func updateButtonLights(e *Elevator) {
+	for floor := 0; floor < len(e.Orders.Cab); floor++ {
+		elevio.SetButtonLamp(config.BT_Cab, floor, e.Orders.Cab[floor])
+		elevio.SetButtonLamp(config.BT_HallUp, floor, e.Orders.Hall[floor][config.BT_HallUp])
+		elevio.SetButtonLamp(config.BT_HallDown, floor, e.Orders.Hall[floor][config.BT_HallDown])
+	}
+}

@@ -22,10 +22,9 @@ type DoorTimer struct {
  
  func NewDoorTimer() *DoorTimer {
 	 t := &DoorTimer{
-		 timer:   time.NewTimer(time.Hour),      // “arm” den langt frem
+		 timer:   time.NewTimer(time.Hour),      
 		 timeout: make(chan struct{}, 1),
 	 }
-	 // Stopp den umiddelbart så den ikke fyrer av ved oppstart
 	 if !t.timer.Stop() {
 		 select {
 		 case <-t.timer.C:

@@ -6,7 +6,6 @@ import (
 )
 
 var Obstruction bool = false
-var currentFloor int = -1 //husk å initialiser
 
 
 type Behavior int
