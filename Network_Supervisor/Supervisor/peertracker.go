@@ -79,7 +79,7 @@ func (pt *peerTracker) detectHeartbeatTimeouts(myCounter uint8) []peerUpdate {
 			continue
 		}
 
-		missedHeartbeats := Delta(myCounter, peer.lastSeenAt) //Vår counter som referanse
+		missedHeartbeats := Delta(myCounter, peer.lastSeenAt)-1 //Vår counter som referanse // -1 fordi differansen altid er >0  
 		oldState := peer.state
 		newState := peer.state
 		fmt.Printf("[PeerTracker] %s: missedHeartbeats=%d (suspect>=%d, dead>=%d) state=%s\n",
