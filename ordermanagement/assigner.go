@@ -44,36 +44,3 @@ func CallAssigner(path string, in AssignerInput) (AssignerOutput, error) {
 	}
 	return out, nil
 }
-/* 
-func main() {
-	in := AssignerInput{
-		HallRequests: [][]bool{
-			{false, false},
-			{true, false},
-			{false, true},
-			{false, false},
-		},
-		States: map[string]ElevatorState{
-			"id_1": {
-				Behaviour:   BehIdle,
-				Floor:       0,
-				Direction:   DirStop,
-				CabRequests: []bool{false, false, false, false},
-			},"id_2": {
-				Behaviour:   BehMoving,
-				Floor:       2,
-				Direction:   DirUp,
-				CabRequests: []bool{false, false, false, false},
-			},
-			
-		},
-	}
-
-	out, err := CallAssigner("../hall_request_assigner/hall_request_assigner", in)
-	if err != nil {
-		panic(err)
-	}
-
-	b, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println(string(b))
-} */
