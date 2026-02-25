@@ -51,10 +51,10 @@ const (
 
 type ElevatorState struct {
     ID          string
-    Behaviour   Behaviour
-    Floor       int        // -1 hvis ukjent/ikke initialisert
-    Direction   Direction
-    CabRequests []bool     
+    Behaviour   Behaviour `json:"behaviour"`
+    Floor       int       `json:"floor"`
+    Direction   Direction `json:"direction"`
+    CabRequests []bool    `json:"cabRequests"`
 }
 
 type PeerUpdate struct {
