@@ -33,7 +33,7 @@ func NewPeerTracker(suspectThreshold, deadThreshold, consensusRequired int) *pee
 	}
 }
 
-//Funksjon som teller antall heiser i live //
+// Funksjon som teller antall heiser i live //
 func (pt *peerTracker) aliveCount() int {
 	count := 0
 	for _, peer := range pt.peers {
@@ -79,7 +79,7 @@ func (pt *peerTracker) detectHeartbeatTimeouts(myCounter uint8) []peerUpdate {
 			continue
 		}
 
-		missedHeartbeats := Delta(myCounter, peer.lastSeenAt) //Vår counter som referanse // -1 fordi differansen altid er >0  
+		missedHeartbeats := Delta(myCounter, peer.lastSeenAt) //Vår counter som referanse // -1 fordi differansen altid er >0
 		oldState := peer.state
 		newState := peer.state
 		fmt.Printf("[PeerTracker] %s: missedHeartbeats=%d (suspect>=%d, dead>=%d) state=%s\n",
