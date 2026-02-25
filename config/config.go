@@ -4,8 +4,9 @@ package config
 type TravelDirection int
 
 const (
-	TD_Up   TravelDirection = 0
-	TD_Down TravelDirection = 1
+	TD_Up   TravelDirection = iota
+	TD_Down 
+	TD_Stop 
 )
 
 type OrderEvent struct{
@@ -15,7 +16,9 @@ type OrderEvent struct{
 
 type ClearEvent struct{
 	Floor int
-	Dir TravelDirection
+	ClearCab bool
+    ClearHallUp bool
+    ClearHallDown bool
 }
  
 type ButtonType int
@@ -31,3 +34,31 @@ type ButtonEvent struct {
 	Floor  int
 	Button ButtonType
 }
+
+type Behaviour string
+const (
+    BehIdle     Behaviour = "idle"
+    BehMoving   Behaviour = "moving"
+    BehDoorOpen Behaviour = "doorOpen"
+)
+
+type Direction string
+const (
+    DirUp   Direction = "up"
+    DirDown Direction = "down"
+    DirStop Direction = "stop"
+)
+
+type ElevatorState struct {
+    ID          string
+    Behaviour   Behaviour
+    Floor       int        // -1 hvis ukjent/ikke initialisert
+    Direction   Direction
+    CabRequests []bool     
+}
+
+type PeerUpdate struct {
+    ID    string
+    Alive bool
+}
+

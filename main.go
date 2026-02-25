@@ -11,6 +11,7 @@ import (
 func main() {
 
 	numFloors := 4
+	myID := "1"
 
 	elevio.Init("localhost:15657", numFloors)
 	
@@ -21,12 +22,11 @@ func main() {
 	obstructionCh := make(chan bool)
 	stopButtonCh := make(chan bool)
 
-	//doorTimeOutCh := make(chan bool)
-	//ordersCmd := make(chan om.Orders)
-
-	omOrdersCh := make(chan om.Orders, 10)
-	//lightsOrdersCh = make(chan om.Orders, 10)
+	ordersOutCh := make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
+	localStateCh := make(chan config.ElevatorState)
+	peerStateCh := make(chan config.ElevatorState)
+	peerUpdateCh := make(chan config.PeerUpdate)
 
 	// Start polling goroutines
 	go elevio.PollButtons(buttonCh)
@@ -35,11 +35,10 @@ func main() {
 	go elevio.PollStopButton(stopButtonCh)
 
 	// Start timer
-	//go timer.Run(timerCmdCh, doorTimeOutCh)
 
-	go om.Run(buttonCh, clearCh, omOrdersCh)
+	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh)
 	t := timer.NewDoorTimer()
-	go fsm.Run(t,floorCh, omOrdersCh, obstructionCh, stopButtonCh, clearCh)
+	go fsm.Run(t,floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh)
 	//go elevio.Run(lightsOrdersCh)
 
 	// Start elevio.Run som sender kommandoer til heisen

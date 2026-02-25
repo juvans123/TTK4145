@@ -5,7 +5,6 @@ import (
 	"heis/elevio"
 	om "heis/ordermanagement"
 	"time"
-	"fmt"
 )
 
  type DoorTimer interface {
@@ -28,7 +27,7 @@ func Run(
 		Floor:    -1,
 		Dir:      config.TD_Down,
 		Behavior: EB_Moving,
-		Orders:   om.NewOrders(),
+		Orders:   om.NewOrders(4),
 	}
 
 	obstructed := false
@@ -41,6 +40,7 @@ func Run(
 
 		// -------- Orders snapshot fra OM --------
 		case newOrders := <-omOrdersCh:
+			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 			e.Orders = newOrders
 			updateButtonLights(&e)
 
@@ -48,19 +48,21 @@ func Run(
 				continue
 			}
 
-			// Hvis vi er idle og står i etasje og har ordre her: åpne dør direkte
-			if e.Behavior != EB_Moving && om.HasOrderAtFloor(&e.Orders, e.Floor) {
-				// velg “service retning” basert på dagens dir (brukes i ClearAtFloor-policy)
-				if elevio.GetFloor() >= 0 {
-					fmt.Print("heihei")
-					e.Behavior = EB_DoorOpen
-					openDoorAndSetLamp(timer)
-					clearCh <- config.ClearEvent{Floor: e.Floor, Dir: e.Dir}
-				}
+			// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
+			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor)  && !prevAtFloor {
+				timer.Reset(doorOpenDuration)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
+				continue
+			}
+		
+			// Hvis idle i etasje og har ordre her: åpne
+			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+				e.Behavior = EB_DoorOpen
+				openDoorAndSetLamp(timer)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
 				continue
 			}
 
-			// Hvis idle: start å kjøre hvis det finnes ordre et sted
 			if e.Behavior == EB_Idle {
 				dir, beh := chooseDirection(&e)
 				e.Dir, e.Behavior = dir, beh
@@ -72,18 +74,15 @@ func Run(
 		// -------- Floor sensor --------
 		case floor := <-floorCh:
 			e.Floor = floor
-			//fmt.Printf("Floor %d", e.Floor)
 			elevio.SetFloorIndicator(floor)
 
 			if e.Behavior == EB_Moving && !stopPressed {
 				if shouldStop(&e) {
 					stopMotor()
-					//if(hasOrderAtThisFloor(&e)){
 					e.Behavior = EB_DoorOpen
 					openDoorAndSetLamp(timer)
-					// Be OM kvittere ordre i denne etasjen
-					clearCh <- config.ClearEvent{Floor: e.Floor, Dir: e.Dir}
-					
+					ce := ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
+					clearCh <- ce
 				}
 			}
 
@@ -115,17 +114,14 @@ func Run(
 
 			if sp {
 				stopMotor()
-				// Åpne dør hvis vi står i etasje
 				floor := elevio.GetFloor()
 
 				if floor >= 0 {
 					e.Behavior = EB_DoorOpen
 					openDoorAndSetLamp(timer)
-					fmt.Print("hei")
-					fmt.Printf("Floor %d", e.Floor)
+					//clearer ikke her
 				} else {
 					e.Behavior = EB_Idle
-					fmt.Print("her er jeg")
 				} 
 			} else {
 				// Stopp sluppet: gå tilbake til normal drift
@@ -183,9 +179,6 @@ func closeDoorAndResetLamp(t DoorTimer) {
 
 func shouldStop(e *Elevator) bool {
 	floor := e.Floor
-/* 	if !ordersExist(e) {
-		return true
-	} */
 	if e.Orders.Cab[floor]{
 		return true
 	}
@@ -242,11 +235,37 @@ func updateButtonLights(e *Elevator) {
 	}
 }
 
-/* func ordersExist(e *Elevator) bool {
-	for floor := 0; floor < len(e.Orders.Cab); floor++ {
-		if om.HasOrderAtFloor(&e.Orders, floor) {
-			return true
-		}
+func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
+	ce := config.ClearEvent{
+		Floor: floor,
+		ClearCab: true, //alltid clear cab på etasje
+		ClearHallUp: false,
+		ClearHallDown: false,
 	}
-	return false
-} */
+	hallUp := orders.Hall[floor][config.BT_HallUp]
+	hallDown := orders.Hall[floor][config.BT_HallDown]
+
+	switch dir {
+	case config.TD_Up:
+		if hallUp {
+			ce.ClearHallUp = true
+		}
+		if hallDown && !om.OrdersAbove(orders, floor) {
+			ce.ClearHallDown = true
+		}
+
+	case config.TD_Down:
+		if hallDown {
+			ce.ClearHallDown = true
+		}
+		if hallUp && !om.OrdersBelow(orders, floor) {
+			ce.ClearHallUp = true
+		}
+
+	/* default:
+		ce.ClearHallUp = hallUp
+		ce.ClearHallDown = hallDown */
+	}
+
+	return ce
+}

@@ -1,44 +1,40 @@
 package ordermanagement
-
+import (
+	"heis/config"
+)
 
 type Orders struct {   
 	Cab  []bool
 	Hall [][]bool
 }
 
-/* var CurrentOrders Orders = Orders{
-	Cab:  make([]bool, 4),
-	Hall: [4][2]bool{},
+type HallPhase int
+const (
+    HallNone HallPhase = iota
+    HallUnconfirmed
+    HallConfirmed
+)
+
+type HallOrderState struct {
+    Phase HallPhase
+    SeenBy map[string]uint8
 }
- */
 
-/* type Dir int
-const (
-	DirUp Dir = 0
-	DirDown Dir = 1
-)
-
-type Behaviour int
-const (
-	EB_Idle Behaviour = 0
-	EB_Moving Behaviour = 1
-	EB_DoorOpen Behaviour = 2
-)
-
-// State som broadcastes (og får fra nettverket)
-type ElevatorState struct {
-	ID string
+type HallObservation struct {
+	FromID string
 	Floor int
-	Dir Dir
-	Behaviour Behaviour
-	CabReq []bool
-	Seq uint64
-	LastSeen time.Time
+	Button config.ButtonType
 }
 
-type Orders struct {
-	Cab []bool
-	Hall [config.N_FLOORS][2]bool
-}
- */
+type WorldState struct {
+    NumFloors int
 
+    // Input til assigner:
+    // hallRequests[f][0]=HallUp, hallRequests[f][1]=HallDown (eller motsatt, men vær konsekvent)
+    HallRequests [][]HallOrderState
+    States map[string]config.ElevatorState
+    Alive map[string]bool
+
+    // Valgfritt: siste gang vi fikk state fra hver peer
+    // LastSeen map[string]time.Time
+}
