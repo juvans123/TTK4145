@@ -20,12 +20,12 @@ type HallOrderState struct {
     SeenBy map[string]uint8
 }
 
-type HallObservation struct {
+/* type HallObservation struct {
 	FromID string
 	Floor int
 	Button config.ButtonType
 }
-
+ */
 type WorldState struct {
     NumFloors int
     HallRequests [][]HallOrderState
