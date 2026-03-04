@@ -69,6 +69,8 @@ func Run(
 				continue
 			}
 
+
+
 			if e.Behavior == EB_Idle {
 				dir, beh := chooseDirection(&e)
 				e.Dir, e.Behavior = dir, beh

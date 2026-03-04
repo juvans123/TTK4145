@@ -61,7 +61,6 @@ func Run(
 				default:
 				}
 			}
-
 		case cl := <-clearCh:
 			if applyClear(&ws, myID, cl) {
 				changed = true
@@ -101,11 +100,12 @@ func Run(
 			}
 
 		case peerHallBtn := <-hallOrderRxCh:
-			// Receive hall orders from other elevators (including echo of own orders)
+			// Receive hall orders from other elevators
 			if peerHallBtn.Button == config.BT_HallUp || peerHallBtn.Button == config.BT_HallDown {
 				if applyButton(&ws, myID, peerHallBtn) {
 					changed = true
 					fmt.Printf("[%s] Received hall order from peer: Floor %d, Button %d\n", myID, peerHallBtn.Floor, peerHallBtn.Button)
+					changed = true
 				}
 			}
 
@@ -115,6 +115,7 @@ func Run(
 				if applyClear(&ws, myID, peerClear) {
 					changed = true
 					fmt.Printf("[%s] Received clear from peer: Floor %d (HallUp=%v, HallDown=%v)\n", myID, peerClear.Floor, peerClear.ClearHallUp, peerClear.ClearHallDown)
+					changed = true
 				}
 			}
 		}

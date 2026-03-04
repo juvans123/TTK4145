@@ -6,9 +6,9 @@ import (
 	"heis/config"
 	"heis/elevio"
 	"heis/fsm"
+	"heis/network"
 	om "heis/ordermanagement"
 	"heis/timer"
-	//"heis/network"
 	//"time"
 )
 
@@ -98,22 +98,38 @@ func main() {
 	go elevio.PollStopButton(stopButtonCh)
 
 	// --- Network: bcast ElevatorState ---
-	//stateTx := make(chan config.ElevatorState, 16)
-	//stateRx := make(chan config.ElevatorState, 64)
+	stateTx := make(chan config.ElevatorState, 16)
+	stateRx := make(chan config.ElevatorState, 64)
 	peerStateCh := make(chan config.ElevatorState, 64)
 
-	//const statePort = 16570
-	/* go network.Transmitter(statePort, stateTx)
+	const statePort = 16570
+	go network.Transmitter(statePort, stateTx)
 	go network.Receiver(statePort, stateRx)
 
-	go network.RunStateBroadcast(myID, netLocalStateCh, stateTx)
-	go network.RunStateReceive(myID, stateRx, peerStateCh) */
+	go network.RunStateBroadcast(myID, fsmStateCh, stateTx)
+	go network.RunStateReceive(myID, stateRx, peerStateCh)
+
+	// --- Network: bcast HallOrders ---
+	hallOrderTx := make(chan config.ButtonEvent, 16)
+	hallOrderRx := make(chan config.ButtonEvent, 64)
+
+	const hallOrderPort = 16571
+	go network.Transmitter(hallOrderPort, hallOrderTx)
+	go network.Receiver(hallOrderPort, hallOrderRx)
+
+	// --- Network: bcast ClearEvents ---
+	clearEventTx := make(chan config.ClearEvent, 16)
+	clearEventRx := make(chan config.ClearEvent, 64)
+
+	const clearPort = 16572
+	go network.Transmitter(clearPort, clearEventTx)
+	go network.Receiver(clearPort, clearEventRx)
 	//-----------------
 	// --- Network: peers alive/dead ---
 	//-----------------
 
 	// Order manager
-	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh)
+	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh, hallOrderTx, hallOrderRx, clearEventTx, clearEventRx)
 
 	// FSM
 	t := timer.NewDoorTimer()
