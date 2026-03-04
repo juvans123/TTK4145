@@ -44,19 +44,6 @@ func main() {
 
 	/*---------Til Ordermanager-------*/
 	peerEventch := make(chan supervisor.PeerEvent)
-	go func() {
-		for event := range peerEventch {
-			switch event.Status {
-			case supervisor.PeerDead:
-
-				fmt.Printf("[OrderManagement] %s died - release hall orders\n", event.PeerID)
-				// TODO: orderManagement.OnPeerDead(event.PeerID)
-			case supervisor.PeerAlive:
-				fmt.Printf("[OrderManagement] %s joined - redistribute orders\n", event.PeerID)
-				// TODO: orderManagement.OnPeerAlive(event.PeerID)
-			}
-		}
-	}()
 
 	cfg := supervisor.DefaultConfig(id)
 	sup := supervisor.New(cfg, hbTx, hbRx, peerEventch)
