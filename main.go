@@ -3,34 +3,14 @@ package main
 import (
 	//"encoding/json"
 	"flag"
-	"fmt"
 	"heis/config"
 	"heis/elevio"
 	"heis/fsm"
-	"heis/Network"
 	om "heis/ordermanagement"
 	"heis/timer"
-	"time"
+	"heis/network"
+	//"time"
 )
-
-// simulateVirtualElevator sends periodic idle state updates for non-hardware elevators
-func simulateVirtualElevator(myID string, numFloors int, localStateCh chan<- config.ElevatorState) {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	state := config.ElevatorState{
-		ID:          myID,
-		Behaviour:   config.BehIdle,
-		Floor:       0,
-		Direction:   config.DirStop,
-		CabRequests: make([]bool, numFloors),
-	}
-
-	for range ticker.C {
-		localStateCh <- state
-	}
-}
-
 /* 
 func testAssigner() {
 	// Test input for the assigner
@@ -77,27 +57,13 @@ func testAssigner() {
 	b, _ := json.MarshalIndent(out, "", "  ")
 	fmt.Println("Assigner output:")
 	fmt.Println(string(b))
-}
- */
+} */
+ 
 func main() {
-
-	// Parse command-line flags
 	idFlag := flag.String("id", "elev1", "Elevator ID (elev1, elev2, elev3, ...)")
 	flag.Parse()
-
-	numFloors := 4
 	myID := *idFlag
 
-	// Uncomment the line below to test the assigner
-	//testAssigner()
-	// return
-
-	// Only connect to hardware if this is elev1
-	if myID == "elev1" {
-		elevio.Init("localhost:15657", numFloors)
-	}
-
-	// Kanaler for kommunikasjon
 	buttonCh := make(chan config.ButtonEvent)
 	floorCh := make(chan int)
 	obstructionCh := make(chan bool)
@@ -105,31 +71,48 @@ func main() {
 
 	ordersOutCh := make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
-	localStateCh := make(chan config.ElevatorState)
-	peerStateCh := make(chan config.ElevatorState)
+	//localStateCh := make(chan config.ElevatorState)
 	peerUpdateCh := make(chan config.PeerUpdate)
 
-	// Start polling goroutines only for elev1 (hardware-connected)
-	if myID == "elev1" {
-		go elevio.PollButtons(buttonCh)
-		go elevio.PollFloorSensor(floorCh)
-		go elevio.PollObstructionSwitch(obstructionCh)
-		go elevio.PollStopButton(stopButtonCh)
-	}
+	fsmStateCh      := make(chan config.ElevatorState, 16) // fra FSM
+	omLocalStateCh  := make(chan config.ElevatorState, 16) // til OM
+	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
+	
+	// OM og broadcaster leser fra samme kanal -> konflikt
+	go func() {
+		for state := range fsmStateCh {
+			omLocalStateCh <- state
+			netLocalStateCh <- state
+		}
+	}()
 
-	// Start order manager and network
-	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh)
-	go network.Run(localStateCh, peerStateCh, peerUpdateCh, myID)
+	// Hardware polling
+	go elevio.PollButtons(buttonCh)
+	go elevio.PollFloorSensor(floorCh)
+	go elevio.PollObstructionSwitch(obstructionCh)
+	go elevio.PollStopButton(stopButtonCh)
 
-	// Start FSM only for hardware-connected elevator
-	if myID == "elev1" {
-		t := timer.NewDoorTimer()
-		go fsm.Run(t, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh)
-	} else {
-		// Virtual elevator: send periodic idle state
-		go simulateVirtualElevator(myID, numFloors, localStateCh)
-	}
+	// --- Network: bcast ElevatorState ---
+	stateTx := make(chan config.ElevatorState, 16)
+	stateRx := make(chan config.ElevatorState, 64)
+	peerStateCh := make(chan config.ElevatorState, 64)
 
-	fmt.Printf("Elevator %s started (hardware: %v)\n", myID, myID == "elev1")
+	const statePort = 16570
+	go network.Transmitter(statePort, stateTx)
+	go network.Receiver(statePort, stateRx)
+
+	go network.RunStateBroadcast(myID, netLocalStateCh, stateTx)
+	go network.RunStateReceive(myID, stateRx, peerStateCh)
+//-----------------
+	// --- Network: peers alive/dead ---
+//-----------------
+
+	// Order manager
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerUpdateCh, ordersOutCh)
+
+	// FSM
+	t := timer.NewDoorTimer()
+	go fsm.Run(myID, t, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh)
+
 	select {}
 }

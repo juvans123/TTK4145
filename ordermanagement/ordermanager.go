@@ -40,6 +40,11 @@ func Run(
 			}
 
 		case st := <-localStateCh:
+			/* st.ID = myID
+			if !statesEqual(ws.States[myID], st) {
+				ws.States[myID] = st
+				changed = true
+			} */
 			ws.States[st.ID] = st
 			changed = true
 
@@ -83,10 +88,10 @@ func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
 	changed := false
 
 	st := ws.States[myID]
-	if st.ID == "" {
+	/* if st.ID == "" {
 		st.ID = myID
 		st.CabRequests = make([]bool, ws.NumFloors)
-	}
+	} */
 
 	switch btn.Button {
 	case config.BT_Cab:
@@ -109,17 +114,17 @@ func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
 }
 
 func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
+	floor := ce.Floor
 	changed := false
 	if ce.ClearCab {
 		st := ws.States[myID]
-		if st.CabRequests[ce.Floor] {
-			st.CabRequests[ce.Floor] = false
+		if st.CabRequests[floor] {
+			st.CabRequests[floor] = false
 			ws.States[myID] = st
 			changed = true
 		}
 	}
 
-	floor := ce.Floor
 
 	if ce.ClearHallUp && ws.HallRequests[floor][config.BT_HallUp].Phase != HallNone {
 		ws.HallRequests[floor][config.BT_HallUp].Phase = HallNone
@@ -136,6 +141,7 @@ func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
 }
 
 func buildOrdersAllHall(ws *WorldState, myID string) Orders {
+	// MIDLERTIDIG
 	o := NewOrders(ws.NumFloors)
 
 	state := ws.States[myID]
@@ -164,7 +170,7 @@ func buildOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildOrdersAllHall(ws, myID)
 	}
-
+	// MIDLERTIDIG fram til hit ish 
 	o := NewOrders(ws.NumFloors)
 	state := ws.States[myID]
 	for floor := 0; floor < ws.NumFloors; floor++ {

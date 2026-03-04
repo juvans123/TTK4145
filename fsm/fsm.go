@@ -16,12 +16,14 @@ const doorOpenDuration = 3 * time.Second
 
 
 func Run(
+	myID string,
 	timer DoorTimer,
 	floorCh <-chan int,
 	omOrdersCh <-chan om.Orders,
 	obstrCh <-chan bool,
 	stopCh <-chan bool,
 	clearCh chan<- config.ClearEvent,
+	stateOutCh chan<- config.ElevatorState,
 ) {
 	e := Elevator{
 		Floor:    -1,
@@ -33,6 +35,7 @@ func Run(
 	obstructed := false
 	stopPressed := false
 	elevatorInit(&e)
+	publishState(myID, e, stateOutCh)
 
 
 	for {
@@ -43,8 +46,8 @@ func Run(
 			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 			e.Orders = newOrders
 			updateButtonLights(&e)
-
 			if stopPressed {
+				publishState(myID, e, stateOutCh)
 				continue
 			}
 
@@ -70,6 +73,7 @@ func Run(
 					setMotor(e.Dir)
 				}
 			}
+			publishState(myID, e, stateOutCh)
 
 		// -------- Floor sensor --------
 		case floor := <-floorCh:
@@ -85,6 +89,7 @@ func Run(
 					clearCh <- ce
 				}
 			}
+			publishState(myID, e, stateOutCh)
 
 		// -------- Door timeout --------
 		case <-timer.Timeout():
@@ -102,6 +107,7 @@ func Run(
 			if e.Behavior == EB_Moving {
 				setMotor(e.Dir)
 			}
+			publishState(myID, e, stateOutCh)
 
 		// -------- Obstruction --------
 		case obs := <-obstrCh:
@@ -135,6 +141,7 @@ func Run(
 					}
 				}
 			}
+			publishState(myID, e, stateOutCh)
 		}
 	}
 }
@@ -268,4 +275,14 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 	}
 
 	return ce
+}
+
+func publishState(myID string, e Elevator, stateOutCh chan<- config.ElevatorState) {
+    st := PublicStateFromFSM(e, myID)
+
+    // Ikke blokker FSM hvis mottaker henger
+    select {
+    case stateOutCh <- st:
+    default:
+    }
 }
