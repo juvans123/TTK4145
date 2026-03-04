@@ -8,10 +8,11 @@ import (
 	"heis/fsm"
 	om "heis/ordermanagement"
 	"heis/timer"
-	"heis/network"
+	//"heis/network"
 	//"time"
 )
-/* 
+
+/*
 func testAssigner() {
 	// Test input for the assigner
 	in := om.AssignerInput{
@@ -58,11 +59,15 @@ func testAssigner() {
 	fmt.Println("Assigner output:")
 	fmt.Println(string(b))
 } */
- 
+
 func main() {
 	idFlag := flag.String("id", "elev1", "Elevator ID (elev1, elev2, elev3, ...)")
+	addrFlag := flag.String("addr", "localhost:12345", "Elevator server address")
+	floorsFlag := flag.Int("floors", config.NumFloors, "Number of floors")
 	flag.Parse()
 	myID := *idFlag
+
+	elevio.Init(*addrFlag, *floorsFlag)
 
 	buttonCh := make(chan config.ButtonEvent)
 	floorCh := make(chan int)
@@ -71,20 +76,20 @@ func main() {
 
 	ordersOutCh := make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
-	//localStateCh := make(chan config.ElevatorState)
+	localStateCh := make(chan config.ElevatorState)
 	peerUpdateCh := make(chan config.PeerUpdate)
 
-	fsmStateCh      := make(chan config.ElevatorState, 16) // fra FSM
-	omLocalStateCh  := make(chan config.ElevatorState, 16) // til OM
-	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
-	
+	fsmStateCh := make(chan config.ElevatorState, 16) // fra FSM
+	//omLocalStateCh  := make(chan config.ElevatorState, 16) // til OM
+	//netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
+
 	// OM og broadcaster leser fra samme kanal -> konflikt
-	go func() {
+	/* go func() {
 		for state := range fsmStateCh {
 			omLocalStateCh <- state
 			netLocalStateCh <- state
 		}
-	}()
+	}() */
 
 	// Hardware polling
 	go elevio.PollButtons(buttonCh)
@@ -93,22 +98,22 @@ func main() {
 	go elevio.PollStopButton(stopButtonCh)
 
 	// --- Network: bcast ElevatorState ---
-	stateTx := make(chan config.ElevatorState, 16)
-	stateRx := make(chan config.ElevatorState, 64)
+	//stateTx := make(chan config.ElevatorState, 16)
+	//stateRx := make(chan config.ElevatorState, 64)
 	peerStateCh := make(chan config.ElevatorState, 64)
 
-	const statePort = 16570
-	go network.Transmitter(statePort, stateTx)
+	//const statePort = 16570
+	/* go network.Transmitter(statePort, stateTx)
 	go network.Receiver(statePort, stateRx)
 
 	go network.RunStateBroadcast(myID, netLocalStateCh, stateTx)
-	go network.RunStateReceive(myID, stateRx, peerStateCh)
-//-----------------
+	go network.RunStateReceive(myID, stateRx, peerStateCh) */
+	//-----------------
 	// --- Network: peers alive/dead ---
-//-----------------
+	//-----------------
 
 	// Order manager
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerUpdateCh, ordersOutCh)
+	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh)
 
 	// FSM
 	t := timer.NewDoorTimer()

@@ -1,6 +1,7 @@
 package fsm
 
 import (
+	"fmt"
 	"heis/config"
 	"heis/elevio"
 	om "heis/ordermanagement"
@@ -43,7 +44,8 @@ func Run(
 
 		// -------- Orders snapshot fra OM --------
 		case newOrders := <-omOrdersCh:
-			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
+			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
+			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
 			e.Orders = newOrders
 			updateButtonLights(&e)
 			if stopPressed {
@@ -52,8 +54,9 @@ func Run(
 			}
 
 			// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
-			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor)  && !prevAtFloor {
+			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {  //sett in prevAtFloor
 				timer.Reset(doorOpenDuration)
+				fmt.Printf("reset dør")
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
 				continue
 			}

@@ -1,7 +1,7 @@
 package network
 
 import (
-	"network/conn"
+	"heis/network/conn"
 	"encoding/json"
 	"fmt"
 	"net"
