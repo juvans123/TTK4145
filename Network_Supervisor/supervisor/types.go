@@ -1,6 +1,7 @@
+
 package supervisor
 
-import "time"
+import "heis/config"
 
 type PeerState int
 
@@ -26,28 +27,28 @@ func (ps PeerState) String() string {
 type Heartbeat struct {
 	PeerID         string
 	Counter        uint8
-	SuspectedPeers []string // Peers som denne noden betrakter som suspected dead / dead
+	SuspectedPeers []string
 }
 
+// Config bruker heis/config.SupervisorConfig som kilde
 type Config struct {
-	MyID              string
-	TickInterval      time.Duration // How often to send heartbeats and check timeouts
-	SuspectThreshold  int           // Missed ticks before suspected dead
-	ConsensusRequired int           //Antall noder som må bekrefte for å oppnå konsensus
+	MyID             string
+	SupervisorConfig config.SupervisorConfig
 }
 
-
-// PeerEvent sendes til OrderManagement når en peer er bekreftet dead eller kommer tilbake
 type PeerEvent struct {
 	PeerID string
-	Alive bool
+	Alive  bool
 }
 
-func DefaultConfig(myID string) Config {
+func NewConfig(myID string) Config {
 	return Config{
-		MyID:              myID,
-		TickInterval:      3 * time.Second,
-		SuspectThreshold:  5,
-		ConsensusRequired: 2,
+		MyID:             myID,
+		SupervisorConfig: config.DefaultSupervisorConfig(),
 	}
 }
+
+// Hjelpere for å lese konfig-verdier
+func (c Config) tickInterval() interface{} { return c.SupervisorConfig.TickInterval }
+func (c Config) suspectThreshold() int     { return c.SupervisorConfig.SuspectThreshold }
+func (c Config) consensusRequired() int    { return c.SupervisorConfig.ConsensusRequired }

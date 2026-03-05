@@ -1,0 +1,1 @@
+{"hallRequests": [[false, false], [true, false], [false, true], [false, false]], "states": {"id_1": {"behaviour": "idle", "floor": 0, "direction": "stop", "cabRequests": [false, false, false, false]}}}
