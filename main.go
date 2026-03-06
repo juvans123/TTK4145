@@ -110,16 +110,14 @@ func main() {
 	go network.RunStateReceive(myID, stateRx, peerStateCh)
 
 	// --- Network: bcast HallOrders ---
-	hallOrderTx := make(chan config.ButtonEvent, 16)
-	hallOrderRx := make(chan config.ButtonEvent, 64)
+	OrderTx := make(chan config.ButtonEvent, 16)
+	OrderRx := make(chan config.ButtonEvent, 64)
 
 	const hallOrderPort = 16571
-	go network.Transmitter(hallOrderPort, hallOrderTx)
-	go network.Receiver(hallOrderPort, hallOrderRx)
+	go network.Transmitter(hallOrderPort, OrderTx)
+	go network.Receiver(hallOrderPort, OrderRx)
 
-	// --- Network: bcast ClearEvents ---
-	clearEventTx := make(chan config.ClearEvent, 16)
-	clearEventRx := make(chan config.ClearEvent, 64)
+	
 
 	const clearPort = 16572
 	go network.Transmitter(clearPort, clearEventTx)
@@ -129,7 +127,7 @@ func main() {
 	//-----------------
 
 	// Order manager
-	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh, hallOrderTx, hallOrderRx, clearEventTx, clearEventRx)
+	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh, OrderTx, OrderRx)
 
 	// FSM
 	t := timer.NewDoorTimer()

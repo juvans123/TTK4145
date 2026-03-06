@@ -15,11 +15,9 @@ func Run(
 	peerStateCh <-chan config.ElevatorState, // states fra andre heiser (via nettverk)
 	peerUpdateCh <-chan config.PeerUpdate, // (id, alive/dead) fra supervisor
 	ordersOutCh chan<- Orders, // snapshot til FSM
-	hallOrderTxCh chan<- config.ButtonEvent, // send hall orders til andre heiser
-	hallOrderRxCh <-chan config.ButtonEvent, // motta hall orders fra andre heiser
-	clearEventTxCh chan<- config.ClearEvent, // send clear events til andre heiser
-	clearEventRxCh <-chan config.ClearEvent, // motta clear events fra andre heiser
-) {
+	OrderTxCh chan<- config.ButtonEvent, // send hall orders til andre heiser
+	OrderRxCh <-chan config.ButtonEvent) // motta hall orders fra andre heiser
+ {
 	numFloors := 4
 	ws := NewWorldState(numFloors)
 	ws.Alive[myID] = true
@@ -51,28 +49,14 @@ func Run(
 		changed := false
 		select {
 		case btn := <-buttonCh:
-			if applyButton(&ws, myID, btn) {
-				changed = true
-			}
-			// Broadcast hall orders to other elevators
-			if btn.Button == config.BT_HallUp || btn.Button == config.BT_HallDown {
-				select {
-				case hallOrderTxCh <- btn:
-				default:
-				}
-			}
+			//apply button locoal 
+			// Broadcast orders to other elevators
+			OrderTxCh <- btn
 
 		case cl := <-clearCh:
-			if applyClear(&ws, myID, cl) {
-				changed = true
-			}
-			// Broadcast hall clears to other elevators
-			if cl.ClearHallUp || cl.ClearHallDown {
-				select {
-				case clearEventTxCh <- cl:
-				default:
-				}
-			}
+			//clear button local
+			// Broadcast clears to other elevators
+			case OrderTxCh <- cl:
 
 		case st := <-localStateCh:
 			/* st.ID = myID
@@ -100,8 +84,12 @@ func Run(
 				changed = true
 			}
 
-		case peerHallBtn := <-hallOrderRxCh:
+		case peerHallBtn := <- OrderRxCh:
 			// Receive hall orders from other elevators (including echo of own orders)
+
+			//if gammel melding -> ignore (Juvan fikser <3)
+			// 
+
 			if peerHallBtn.Button == config.BT_HallUp || peerHallBtn.Button == config.BT_HallDown {
 				if applyButton(&ws, myID, peerHallBtn) {
 					changed = true
@@ -109,14 +97,6 @@ func Run(
 				}
 			}
 
-		case peerClear := <-clearEventRxCh:
-			// Receive clear events from other elevators
-			if peerClear.ClearHallUp || peerClear.ClearHallDown {
-				if applyClear(&ws, myID, peerClear) {
-					changed = true
-					fmt.Printf("[%s] Received clear from peer: Floor %d (HallUp=%v, HallDown=%v)\n", myID, peerClear.Floor, peerClear.ClearHallUp, peerClear.ClearHallDown)
-				}
-			}
 		}
 		if changed {
 			//fmt.Printf("buildOrders\n")
