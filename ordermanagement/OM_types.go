@@ -43,15 +43,9 @@ type OrderInfo struct{
 type OrderTracker map[OrderKey]OrderInfo
 
 
-/* type HallObservation struct {
-	FromID string
-	Floor int
-	Button config.ButtonType
-}
- */
 type WorldState struct {
-    NumFloors int
-    HallRequests [][]OrderState
+    ConfirmedHallOrders [config.N_FLOORS][2]bool
+    ConfirmedCabOrders map[string][]bool
     States map[string]config.ElevatorState
     Alive map[string]bool
     //OrderTracker OrderTracker

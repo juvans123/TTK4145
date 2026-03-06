@@ -1,6 +1,6 @@
 package config
 
-var NumFloors = 4
+const N_FLOORS = 4
 type TravelDirection int
 
 const (

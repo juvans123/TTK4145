@@ -19,7 +19,7 @@ func RunStateBroadcast(
 		Floor:       -1,
 		Direction:   config.DirStop,
 		Behaviour:   config.BehIdle,
-		CabRequests: make([]bool, config.NumFloors),
+		CabRequests: make([]bool, config.N_FLOORS),
 	}
 
 	for {

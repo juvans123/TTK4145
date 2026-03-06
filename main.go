@@ -63,7 +63,7 @@ func testAssigner() {
 func main() {
 	idFlag := flag.String("id", "elev1", "Elevator ID (elev1, elev2, elev3, ...)")
 	addrFlag := flag.String("addr", "localhost:12345", "Elevator server address")
-	floorsFlag := flag.Int("floors", config.NumFloors, "Number of floors")
+	floorsFlag := flag.Int("floors", config.N_FLOORS, "Number of floors")
 	flag.Parse()
 	myID := *idFlag
 
@@ -119,9 +119,9 @@ func main() {
 
 	
 
-	const clearPort = 16572
-	go network.Transmitter(clearPort, clearEventTx)
-	go network.Receiver(clearPort, clearEventRx)
+	// clearPort = 16572
+	//go network.Transmitter(clearPort, clearEventTx)
+	//go network.Receiver(clearPort, clearEventRx)
 	//-----------------
 	// --- Network: peers alive/dead ---
 	//-----------------
