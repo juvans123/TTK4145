@@ -231,7 +231,7 @@ func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
 
 	return changed
 }
-
+/* 
 func buildOrdersAllHall(ws *WorldState, myID string) Orders {
 	// MIDLERTIDIG
 	o := NewOrders(config.N_FLOORS)
@@ -249,76 +249,74 @@ func buildOrdersAllHall(ws *WorldState, myID string) Orders {
 	}
 	return o
 }
-
-// bygger ordere objektet som skal sendes til FSM
-func buildOrders(ws *WorldState, myID string) Orders {
+ */
+func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	inputAssigner := buildAssignerInput(ws)
 	path := "./hall_request_assigner/hall_request_assigner"
 
 	assignments, err := CallAssigner(path, inputAssigner)
 	if err != nil {
 		fmt.Printf("Assigner error: %v\n", err)
-		return buildOrdersAllHall(ws, myID) //hvis den feiler, får alle heisene dens ordere
+		//return buildOrdersAllHall(ws, myID) //hvis den feiler, får alle heisene dens ordere
 	}
 
-	assignedHall, ok := assignments[myID]
-	fmt.Printf("%v\n", assignedHall)
+	myAssignedHall, ok := assignments[myID]
+	fmt.Printf("Assigned hall for %s: %+v\n", myID, myAssignedHall)
 	if !ok {
 		fmt.Printf("MyID %s not in assigner output\n", myID)
-		return buildOrdersAllHall(ws, myID)
+		//return buildOrdersAllHall(ws, myID)
 	}
 
-	o := NewOrders(config.N_FLOORS)
-	state := ws.States[myID]
+	myLocalOrders := NewOrders(config.N_FLOORS)
+
+	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
+	if ok && len(confirmedCab) == config.N_FLOORS{
+		for floor := 0; floor < config.N_FLOORS; floor++ {
+			myLocalOrders.Cab[floor] = confirmedCab[floor]
+		}
+	}
+
 	for floor := 0; floor < config.N_FLOORS; floor++ {
-		o.Cab[floor] = state.CabRequests[floor]
-		o.Hall[floor][0] = assignedHall[floor][0]
-		o.Hall[floor][1] = assignedHall[floor][1]
+		myLocalOrders.Hall[floor][config.BT_HallUp] = myAssignedHall[floor][config.BT_HallUp]
+		myLocalOrders.Hall[floor][config.BT_HallDown] = myAssignedHall[floor][config.BT_HallDown]
 	}
 
-	return o
+	return myLocalOrders
 }
 
-// konvererer input til assigner
 func buildAssignerInput(ws *WorldState) AssignerInput {
 	hallRequests := make([][]bool, config.N_FLOORS)
+
 	for floor := 0; floor < config.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
-		hallRequests[floor][0] = (ws.HallRequests[floor][0].Phase == Confirmed)
-		hallRequests[floor][1] = (ws.HallRequests[floor][1].Phase == Confirmed)
+		hallRequests[floor][config.BT_HallUp] = ws.ConfirmedHallOrders[floor][config.BT_HallUp]
+		hallRequests[floor][config.BT_HallDown] = ws.ConfirmedHallOrders[floor][config.BT_HallDown]
 	}
 
 	states := make(map[string]config.ElevatorState)
-	for id, st := range ws.States {
-		if alive, ok := ws.Alive[id]; ok && !alive {
+	for id, state := range ws.States {
+		alive, ok := ws.Alive[id];
+		if ok && !alive {
 			continue
 		}
-		states[id] = st
+		states[id] = state
 	}
 
-	return AssignerInput{HallRequests: hallRequests, States: states}
+	return AssignerInput{
+		HallRequests: hallRequests,
+		States:       states,
+	}
 }
 
-// initialiserer world state funksjonen
-func NewWorldState(numFloors int) WorldState {
-	ws := WorldState{
-		NumFloors:    numFloors,
-		HallRequests: make([][]HallOrderState, numFloors),
-		States:       make(map[string]config.ElevatorState),
-		Alive:        make(map[string]bool),
+func NewWorldState() WorldState {
+	return WorldState{
+		ConfirmedHallOrders: [config.N_FLOORS][2]bool{},
+		ConfirmedCabOrders:  make(map[string][]bool),
+		States:              make(map[string]config.ElevatorState),
+		Alive:               make(map[string]bool),
 	}
-
-	for floor := 0; floor < numFloors; floor++ {
-		ws.HallRequests[floor] = make([]HallOrderState, 2) // 0=up,1=down
-		for dir := 0; dir < 2; dir++ {
-			ws.HallRequests[floor][dir] = HallOrderState{
-				Phase:  NoOrder,
-				SeenBy: make(map[string]uint8),
-			}
-		}
-	}
-	return ws
 }
+
 
 func OrdersAbove(orders *Orders, currentFloor int) bool {
 	for floor := currentFloor + 1; floor < len(orders.Cab); floor++ {
