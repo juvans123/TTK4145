@@ -40,7 +40,7 @@ type OrderInfo struct{
     //counter
 }
 
-type OrderTracker map[Oderkey]OrderInfo
+type OrderTracker map[OrderKey]OrderInfo
 
 
 /* type HallObservation struct {
@@ -51,9 +51,10 @@ type OrderTracker map[Oderkey]OrderInfo
  */
 type WorldState struct {
     NumFloors int
-    HallRequests [][]HallOrderState
+    HallRequests [][]OrderState
     States map[string]config.ElevatorState
     Alive map[string]bool
+    //OrderTracker OrderTracker
     // LastSeen map[string]time.Time
 }
 

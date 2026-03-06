@@ -20,6 +20,7 @@ func Run(
  {
 	numFloors := 4
 	ws := NewWorldState(numFloors)
+	ot := make(OrderTracker)
 	ws.Alive[myID] = true
 
 	ws.States[myID] = config.ElevatorState{
@@ -50,6 +51,23 @@ func Run(
 		select {
 		case btn := <-buttonCh:
 			//apply button locoal 
+			
+			// add order to tracker for this elevator
+			key := OrderKey{OwnerID: myID, Floor: btn.Floor, Button: btn.Button}
+			ws.OrderTracker[key] = OrderInfo{
+				SeenBy: map[string]bool{myID: true},
+				Phase:  Confirmed,
+			}
+
+			key := OrderKey{OwnerID: myID, Floor: btn.Floor, Button: btn.Button}
+        	ot[key] = OrderInfo{SeenBy: map[string]bool{myID: true}, Phase: CabConfirmed}
+
+		   //add order to tracker for this elevator
+			key := OrderKey{OwnerID: myID, Floor: btn.Floor, Button: btn.Button}
+			ws.OrderTracker[key] = OrderInfo{
+				SeenBy: map[string]bool{myID: true},
+				Phase:  Confirmed,
+			}
 			// Broadcast orders to other elevators
 			OrderTxCh <- btn
 
