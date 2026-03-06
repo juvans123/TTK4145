@@ -16,10 +16,9 @@ func Run(
 	peerUpdateCh <-chan config.PeerUpdate, // (id, alive/dead) fra supervisor
 	ordersOutCh chan<- Orders, // snapshot til FSM
 	OrderTxCh chan<- config.ButtonEvent, // send hall orders til andre heiser
-	OrderRxCh <-chan config.ButtonEvent) // motta hall orders fra andre heiser
- {
-	numFloors := 4
-	ws := NewWorldState(numFloors)
+	OrderRxCh <-chan config.ButtonEvent) {
+
+	ws := NewWorldState(config.N_FLOORS)
 	ot := make(OrderTracker)
 	ws.Alive[myID] = true
 
@@ -28,7 +27,7 @@ func Run(
 		Floor:       0, // Start at floor 0 instead of -1
 		Behaviour:   config.BehIdle,
 		Direction:   config.DirStop,
-		CabRequests: make([]bool, numFloors),
+		CabRequests: make([]bool, config.N_FLOORS),
 	}
 
 	// Hardcoded peers for local testing (network broadcast doesn't work on localhost)
@@ -39,7 +38,7 @@ func Run(
 				Floor:       0,
 				Behaviour:   config.BehIdle,
 				Direction:   config.DirStop,
-				CabRequests: make([]bool, numFloors),
+				CabRequests: make([]bool, config.N_FLOORS),
 			}
 			ws.Alive[id] = true
 		}
@@ -196,16 +195,16 @@ func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
 
 func buildOrdersAllHall(ws *WorldState, myID string) Orders {
 	// MIDLERTIDIG
-	o := NewOrders(ws.NumFloors)
+	o := NewOrders(config.N_FLOORS)
 
 	state := ws.States[myID]
 
-	for floor := 0; floor < ws.NumFloors; floor++ {
+	for floor := 0; floor < config.N_FLOORS; floor++ {
 		o.Cab[floor] = state.CabRequests[floor]
 	}
 
 	// hall: alle confirmed (midlertidig uten assigner)
-	for floor := 0; floor < ws.NumFloors; floor++ {
+	for floor := 0; floor < config.N_FLOORS; floor++ {
 		o.Hall[floor][0] = (ws.HallRequests[floor][0].Phase == HallConfirmed)
 		o.Hall[floor][1] = (ws.HallRequests[floor][1].Phase == HallConfirmed)
 	}
@@ -230,9 +229,9 @@ func buildOrders(ws *WorldState, myID string) Orders {
 		return buildOrdersAllHall(ws, myID)
 	}
 
-	o := NewOrders(ws.NumFloors)
+	o := NewOrders(config.N_FLOORS)
 	state := ws.States[myID]
-	for floor := 0; floor < ws.NumFloors; floor++ {
+	for floor := 0; floor < config.N_FLOORS; floor++ {
 		o.Cab[floor] = state.CabRequests[floor]
 		o.Hall[floor][0] = assignedHall[floor][0]
 		o.Hall[floor][1] = assignedHall[floor][1]
@@ -243,8 +242,8 @@ func buildOrders(ws *WorldState, myID string) Orders {
 
 // konvererer input til assigner
 func buildAssignerInput(ws *WorldState) AssignerInput {
-	hallRequests := make([][]bool, ws.NumFloors)
-	for floor := 0; floor < ws.NumFloors; floor++ {
+	hallRequests := make([][]bool, config.N_FLOORS)
+	for floor := 0; floor < config.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
 		hallRequests[floor][0] = (ws.HallRequests[floor][0].Phase == HallConfirmed)
 		hallRequests[floor][1] = (ws.HallRequests[floor][1].Phase == HallConfirmed)
