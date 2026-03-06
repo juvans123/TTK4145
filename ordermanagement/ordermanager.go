@@ -18,9 +18,17 @@ func Run(
 	OrderTxCh chan<- OrderMsg, // send hall orders til andre heiser
 	OrderRxCh <-chan OrderMsg) {
 
-	ws := NewWorldState(config.N_FLOORS)
+	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
 	ws.Alive[myID] = true
+	peerID := ""
+	
+
+	if myID == "elev1"{
+		peerID = "elev2"
+	} else{
+		peerID = "elev1"
+	}
 
 	ws.States[myID] = config.ElevatorState{
 		ID:          myID,
@@ -44,7 +52,7 @@ func Run(
 		}
 	}
 
-	ordersOutCh <- buildOrders(&ws, myID)
+	ordersOutCh <- buildMyLocalOrders(&ws, myID)
 	for {
 		changed := false
 		select {
@@ -126,39 +134,53 @@ func Run(
 
 
 			if peerOrder.Phase == Confirmed {
-				// Sett ordren til confirmed i world state
-				switch peerOrder.Button {
-				case config.BT_Cab:
-					// make sure we've allocated the slice for this owner
-					if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; !ok {
-						ws.ConfirmedCabOrders[peerOrder.OwnerID] = make([]bool, config.N_FLOORS)
+				//setter til seen i egen
+				key := OrderKey{OwnerID: myID, Floor: peerOrder.Floor, Button: peerOrder.Button}
+				localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: true, peerID: true}, Phase: Confirmed}
+				// Hvis begge har sett orderen Sett ordren til confirmed i world state
+
+				if localOrderView[key].SeenBy[myID] && localOrderView[key].SeenBy[peerID]{
+					switch peerOrder.Button {
+					case config.BT_Cab:
+						// make sure we've allocated the slice for this owner
+						if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; !ok {
+							ws.ConfirmedCabOrders[peerOrder.OwnerID] = make([]bool, config.N_FLOORS)
+						}
+						ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = true
+						changed = true
+					case config.BT_HallUp, config.BT_HallDown:
+						ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = true
+						changed = true
 					}
-					ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = true
-					changed = true
-				case config.BT_HallUp, config.BT_HallDown:
-					ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = true
-					changed = true
+					
 				}
 			}
 			if peerOrder.Phase == NoOrder {
+				
+				key := OrderKey{OwnerID: myID, Floor: peerOrder.Floor, Button: peerOrder.Button}
+				localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: false, peerID: false}, Phase: NoOrder}
+				// Hvis begge har sett orderen Sett ordren til confirmed i world state
+
+				if !localOrderView[key].SeenBy[myID] && !localOrderView[key].SeenBy[peerID]{
 				// Sett ordren til none i world state
 		
-				switch peerOrder.Button {
-				case config.BT_Cab:
-					if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; ok {
-						ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = false
+					switch peerOrder.Button {
+					case config.BT_Cab:
+						if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; ok {
+							ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = false
+						}
+						changed = true
+					case config.BT_HallUp, config.BT_HallDown:
+						ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = false
+						changed = true
 					}
-					changed = true
-				case config.BT_HallUp, config.BT_HallDown:
-					ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = false
-					changed = true
 				}
 			}
 
 		}
 		if changed {
 			//fmt.Printf("buildOrders\n")
-			orders := buildOrders(&ws, myID)
+			orders := buildMyLocalOrders(&ws, myID)
 			ordersOutCh <- orders
 		}
 	}
@@ -179,14 +201,14 @@ func NewOrders(numFloors int) Orders {
 }
 
 // apply button til worldstate
-func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
+/* func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
 	changed := false
 
 	st := ws.States[myID]
 	/* if st.ID == "" {
 		st.ID = myID
 		st.CabRequests = make([]bool, ws.NumFloors)
-	} */
+	} 
 
 	switch btn.Button {
 	case config.BT_Cab:
@@ -206,7 +228,7 @@ func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
 
 	return changed
 }
-
+ 
 // clear de som skal cleares
 func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
 	floor := ce.Floor
