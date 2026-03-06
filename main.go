@@ -110,8 +110,8 @@ func main() {
 	go network.RunStateReceive(myID, stateRx, peerStateCh)
 
 	// --- Network: bcast HallOrders ---
-	OrderTx := make(chan config.ButtonEvent, 16)
-	OrderRx := make(chan config.ButtonEvent, 64)
+	OrderTx := make(chan om.OrderMsg, 16)
+	OrderRx := make(chan om.OrderMsg, 64)
 
 	const hallOrderPort = 16571
 	go network.Transmitter(hallOrderPort, OrderTx)

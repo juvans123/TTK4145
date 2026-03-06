@@ -15,11 +15,11 @@ func Run(
 	peerStateCh <-chan config.ElevatorState, // states fra andre heiser (via nettverk)
 	peerUpdateCh <-chan config.PeerUpdate, // (id, alive/dead) fra supervisor
 	ordersOutCh chan<- Orders, // snapshot til FSM
-	OrderTxCh chan<- config.ButtonEvent, // send hall orders til andre heiser
-	OrderRxCh <-chan config.ButtonEvent) {
+	OrderTxCh chan<- OrderMsg, // send hall orders til andre heiser
+	OrderRxCh <-chan OrderMsg) {
 
 	ws := NewWorldState(config.N_FLOORS)
-	ot := make(OrderTracker)
+	localOrderView := make(OrderTracker)
 	ws.Alive[myID] = true
 
 	ws.States[myID] = config.ElevatorState{
@@ -49,31 +49,52 @@ func Run(
 		changed := false
 		select {
 		case btn := <-buttonCh:
-			//apply button locoal 
-			
+			//apply button locoal
+
 			// add order to tracker for this elevator
 			key := OrderKey{OwnerID: myID, Floor: btn.Floor, Button: btn.Button}
-			ws.OrderTracker[key] = OrderInfo{
-				SeenBy: map[string]bool{myID: true},
-				Phase:  Confirmed,
+			localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: true}, Phase: Confirmed}
+
+			//lage message for sending
+			msg := OrderMsg{
+				OwnerID: myID,
+				Floor:   btn.Floor,
+				Button:  btn.Button,
+				SeenBy:  map[string]bool{myID: true},
+				Phase:   Confirmed,
 			}
 
-			key := OrderKey{OwnerID: myID, Floor: btn.Floor, Button: btn.Button}
-        	ot[key] = OrderInfo{SeenBy: map[string]bool{myID: true}, Phase: CabConfirmed}
-
-		   //add order to tracker for this elevator
-			key := OrderKey{OwnerID: myID, Floor: btn.Floor, Button: btn.Button}
-			ws.OrderTracker[key] = OrderInfo{
-				SeenBy: map[string]bool{myID: true},
-				Phase:  Confirmed,
-			}
-			// Broadcast orders to other elevators
-			OrderTxCh <- btn
+			OrderTxCh <- msg
 
 		case cl := <-clearCh:
-			//clear button local
-			// Broadcast clears to other elevators
-			case OrderTxCh <- cl:
+			// Definer hvilke clear-typer som skal håndteres
+			clears := []struct {
+				shouldClear bool
+				button      config.ButtonType
+			}{
+				{cl.ClearCab, config.BT_Cab},
+				{cl.ClearHallUp, config.BT_HallUp},
+				{cl.ClearHallDown, config.BT_HallDown},
+			}
+
+			// For hver clear-type som er true, oppdater tracker og send melding
+			for _, clearInfo := range clears {
+				if clearInfo.shouldClear {
+					key := OrderKey{OwnerID: myID, Floor: cl.Floor, Button: clearInfo.button}
+					localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: true}, Phase: NoOrder}
+
+					// Lage melding for sending
+					msg := OrderMsg{
+						OwnerID: myID,
+						Floor:   cl.Floor,
+						Button:  clearInfo.button,
+						SeenBy:  map[string]bool{myID: true},
+						Phase:   NoOrder,
+					}
+
+					OrderTxCh <- msg
+				}
+			}
 
 		case st := <-localStateCh:
 			/* st.ID = myID
@@ -101,16 +122,36 @@ func Run(
 				changed = true
 			}
 
-		case peerHallBtn := <- OrderRxCh:
-			// Receive hall orders from other elevators (including echo of own orders)
+		case peerOrder := <-OrderRxCh:
 
-			//if gammel melding -> ignore (Juvan fikser <3)
-			// 
 
-			if peerHallBtn.Button == config.BT_HallUp || peerHallBtn.Button == config.BT_HallDown {
-				if applyButton(&ws, myID, peerHallBtn) {
+			if peerOrder.Phase == Confirmed {
+				// Sett ordren til confirmed i world state
+				switch peerOrder.Button {
+				case config.BT_Cab:
+					// make sure we've allocated the slice for this owner
+					if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; !ok {
+						ws.ConfirmedCabOrders[peerOrder.OwnerID] = make([]bool, config.N_FLOORS)
+					}
+					ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = true
 					changed = true
-					fmt.Printf("[%s] Received hall order from peer: Floor %d, Button %d\n", myID, peerHallBtn.Floor, peerHallBtn.Button)
+				case config.BT_HallUp, config.BT_HallDown:
+					ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = true
+					changed = true
+				}
+			}
+			if peerOrder.Phase == NoOrder {
+				// Sett ordren til none i world state
+		
+				switch peerOrder.Button {
+				case config.BT_Cab:
+					if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; ok {
+						ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = false
+					}
+					changed = true
+				case config.BT_HallUp, config.BT_HallDown:
+					ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = false
+					changed = true
 				}
 			}
 
@@ -149,20 +190,20 @@ func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
 
 	switch btn.Button {
 	case config.BT_Cab:
-		if !st.CabRequests[btn.Floor] {
-			st.CabRequests[btn.Floor] = true
-			ws.States[myID] = st
+		if _, ok := ws.ConfirmedCabOrders[myID]; !ok {
+			ws.ConfirmedCabOrders[myID] = make([]bool, config.N_FLOORS)
+		}
+		if !ws.ConfirmedCabOrders[myID][btn.Floor] {
+			ws.ConfirmedCabOrders[myID][btn.Floor] = true
 			changed = true
 		}
 	case config.BT_HallUp, config.BT_HallDown:
-		if ws.HallRequests[btn.Floor][btn.Button].Phase != HallConfirmed {
-			ws.HallRequests[btn.Floor][btn.Button].Phase = HallConfirmed
+		if !ws.ConfirmedHallOrders[btn.Floor][btn.Button] {
+			ws.ConfirmedHallOrders[btn.Floor][btn.Button] = true
 			changed = true
 		}
-		// marker at jeg har sett den
-		ws.HallRequests[btn.Floor][btn.Button].SeenBy[myID] = 1
-
 	}
+
 	return changed
 }
 
@@ -179,14 +220,12 @@ func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
 		}
 	}
 
-	if ce.ClearHallUp && ws.HallRequests[floor][config.BT_HallUp].Phase != HallNone {
-		ws.HallRequests[floor][config.BT_HallUp].Phase = HallNone
-		ws.HallRequests[floor][config.BT_HallUp].SeenBy = make(map[string]uint8)
+	if ce.ClearHallUp && ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
+		ws.ConfirmedHallOrders[floor][config.BT_HallUp] = false
 		changed = true
 	}
-	if ce.ClearHallDown && ws.HallRequests[floor][config.BT_HallDown].Phase != HallNone {
-		ws.HallRequests[floor][config.BT_HallDown].Phase = HallNone
-		ws.HallRequests[floor][config.BT_HallDown].SeenBy = make(map[string]uint8)
+	if ce.ClearHallDown && ws.ConfirmedHallOrders[floor][config.BT_HallDown] {
+		ws.ConfirmedHallOrders[floor][config.BT_HallDown] = false
 		changed = true
 	}
 
@@ -205,8 +244,8 @@ func buildOrdersAllHall(ws *WorldState, myID string) Orders {
 
 	// hall: alle confirmed (midlertidig uten assigner)
 	for floor := 0; floor < config.N_FLOORS; floor++ {
-		o.Hall[floor][0] = (ws.HallRequests[floor][0].Phase == HallConfirmed)
-		o.Hall[floor][1] = (ws.HallRequests[floor][1].Phase == HallConfirmed)
+		o.Hall[floor][0] = (ws.HallRequests[floor][0].Phase == Confirmed)
+		o.Hall[floor][1] = (ws.HallRequests[floor][1].Phase == Confirmed)
 	}
 	return o
 }
@@ -245,8 +284,8 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 	hallRequests := make([][]bool, config.N_FLOORS)
 	for floor := 0; floor < config.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
-		hallRequests[floor][0] = (ws.HallRequests[floor][0].Phase == HallConfirmed)
-		hallRequests[floor][1] = (ws.HallRequests[floor][1].Phase == HallConfirmed)
+		hallRequests[floor][0] = (ws.HallRequests[floor][0].Phase == Confirmed)
+		hallRequests[floor][1] = (ws.HallRequests[floor][1].Phase == Confirmed)
 	}
 
 	states := make(map[string]config.ElevatorState)
@@ -273,7 +312,7 @@ func NewWorldState(numFloors int) WorldState {
 		ws.HallRequests[floor] = make([]HallOrderState, 2) // 0=up,1=down
 		for dir := 0; dir < 2; dir++ {
 			ws.HallRequests[floor][dir] = HallOrderState{
-				Phase:  HallNone,
+				Phase:  NoOrder,
 				SeenBy: make(map[string]uint8),
 			}
 		}
