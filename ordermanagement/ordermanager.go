@@ -279,14 +279,14 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	assignments, err := CallAssigner(path, inputAssigner)
 	if err != nil {
 		fmt.Printf("Assigner error: %v\n", err)
-		//return buildOrdersAllHall(ws, myID) //hvis den feiler, får alle heisene dens ordere
+		return buildCabOnlyOrders(ws, myID)
 	}
 
 	myAssignedHall, ok := assignments[myID]
 	fmt.Printf("Assigned hall for %s: %+v\n", myID, myAssignedHall)
 	if !ok {
 		fmt.Printf("MyID %s not in assigner output\n", myID)
-		//return buildOrdersAllHall(ws, myID)
+		return buildCabOnlyOrders(ws, myID)
 	}
 
 	myLocalOrders := NewOrders(config.N_FLOORS)
@@ -305,10 +305,30 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 
 	return myLocalOrders
 }
+ 
+func buildCabOnlyOrders(ws *WorldState, myID string) Orders {
+	cabOnlyOrders := NewOrders(config.N_FLOORS)
+
+	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
+	if !ok {
+		return cabOnlyOrders
+	}
+
+	if len(confirmedCab) != config.N_FLOORS {
+		fmt.Printf("Warning: ConfirmedCabOrders for %s has wrong length\n", myID)
+		return cabOnlyOrders
+	}
+
+	for floor := 0; floor < config.N_FLOORS; floor++ {
+		cabOnlyOrders.Cab[floor] = confirmedCab[floor]
+	}
+
+	return cabOnlyOrders
+}
+
 
 func buildAssignerInput(ws *WorldState) AssignerInput {
 	hallRequests := make([][]bool, config.N_FLOORS)
-
 	for floor := 0; floor < config.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
 		hallRequests[floor][config.BT_HallUp] = ws.ConfirmedHallOrders[floor][config.BT_HallUp]
@@ -321,6 +341,14 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 		if ok && !alive {
 			continue
 		}
+
+		confirmedCab, ok := ws.ConfirmedCabOrders[id];
+		if ok && len(confirmedCab) == config.N_FLOORS {
+			cabCopy := make([]bool, config.N_FLOORS)
+			copy(cabCopy, confirmedCab)
+			state.CabRequests = cabCopy
+		}
+
 		states[id] = state
 	}
 
@@ -363,36 +391,3 @@ func HasOrderAtFloor(orders *Orders, floor int) bool {
 		orders.Hall[floor][config.BT_HallUp] ||
 		orders.Hall[floor][config.BT_HallDown]
 }
-
-/* func addOrderFromButtonEvent(btn config.ButtonEvent, orders *Orders) {
-	switch btn.Button {
-	case config.BT_Cab:
-		orders.Cab[btn.Floor] = true
-
-	case config.BT_HallUp:
-		orders.Hall[btn.Floor][config.BT_HallUp] = true
-
-	case config.BT_HallDown:
-		orders.Hall[btn.Floor][config.BT_HallDown] = true
-	}
-} */
-
-/*
-func ClearAtFloor(orders *Orders, floor int, travelDir config.TravelDirection) {
-	if floor >= 0 && floor < len(orders.Cab) {
-		orders.Cab[floor] = false
-	}
-	switch travelDir {
-	case config.TD_Up:
-		orders.Hall[floor][config.BT_HallUp] = false
-		if !OrdersAbove(orders, floor) {
-			orders.Hall[floor][config.BT_HallDown] = false
-		}
-	case config.TD_Down:
-		orders.Hall[floor][config.BT_HallDown] = false
-		if !OrdersBelow(orders, floor) {
-			orders.Hall[floor][config.BT_HallUp] = false
-		}
-	}
-
-} */
