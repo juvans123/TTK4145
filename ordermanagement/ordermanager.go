@@ -123,7 +123,10 @@ mainLoop:
 					if clearOrderInWorldState(&ws, key) {
 						changed = true
 					}
-					delete(localOrderView, key)
+					localOrderView[key] = OrderInfo{
+					Phase: NoOrder,
+					SeenBy: make(map[string]bool),
+					}	
 				}
 			}
 
@@ -157,6 +160,9 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				shouldRebroadcast = true
 			} */
+			if peerOrder.Phase == Served && !isConfirmedInWorldState(&ws, key){
+				continue mainLoop
+			}
 
 			if peerOrder.Phase > info.Phase {
 				// Peer har en nyere fase enn meg -> oppgrader
@@ -213,8 +219,11 @@ mainLoop:
 				if clearOrderInWorldState(&ws, key) {
 					changed = true
 				}
-				delete(localOrderView, key)
-				fmt.Printf("[OM %s] CLEARED %+v\n", myID, key)
+				localOrderView[key] = OrderInfo{
+					Phase: NoOrder,
+					SeenBy: make(map[string]bool),
+				}
+				//fmt.Printf("[OM %s] CLEARED %+v\n", myID, key)
 			}
 		}
 
@@ -250,6 +259,19 @@ func copySeenBy(src map[string]bool) map[string]bool {
 		dst[k] = v
 	}
 	return dst
+}
+
+func isConfirmedInWorldState(ws *WorldState, key OrderKey) bool {
+	switch key.Button {
+	case config.BT_Cab:
+		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
+			return cabs[key.Floor]
+		}
+		return false
+	case config.BT_HallUp, config.BT_HallDown:
+		return ws.ConfirmedHallOrders[key.Floor][key.Button]
+	}
+	return false
 }
 
 func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
