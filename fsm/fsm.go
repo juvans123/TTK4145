@@ -88,10 +88,12 @@ func Run(
 			if e.Behavior == EB_Moving && !stopPressed {
 				if shouldStop(&e) {
 					stopMotor()
-					e.Behavior = EB_DoorOpen
-					openDoorAndSetLamp(timer)
-					ce := ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
-					clearCh <- ce
+					if om.HasOrders(&e.Orders){
+						e.Behavior = EB_DoorOpen
+						openDoorAndSetLamp(timer)
+						ce := ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
+						clearCh <- ce
+					}
 				}
 			}
 			publishState(myID, e, stateOutCh)
@@ -192,6 +194,9 @@ func closeDoorAndResetLamp(t DoorTimer) {
 func shouldStop(e *Elevator) bool {
 	floor := e.Floor
 	if e.Orders.Cab[floor]{
+		return true
+	}
+	if !om.HasOrders(&e.Orders){
 		return true
 	}
 	switch e.Dir{
