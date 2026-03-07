@@ -5,33 +5,31 @@ import (
 	"heis/config"
 )
 
-//const NumFloors = 4
 
 func Run(
 	myID string,
-	buttonCh <-chan config.ButtonEvent, // lokale knappetrykk
-	clearCh <-chan config.ClearEvent, // fra FSM når dør ordre er servert
-	localStateCh <-chan config.ElevatorState, // public state fra lokal FSM
-	peerStateCh <-chan config.ElevatorState, // states fra andre heiser (via nettverk)
-	peerUpdateCh <-chan config.PeerUpdate, // (id, alive/dead) fra supervisor
-	ordersOutCh chan<- Orders, // snapshot til FSM
-	OrderTxCh chan<- OrderMsg, // send hall orders til andre heiser
-	OrderRxCh <-chan OrderMsg) {
-
+	buttonCh <-chan config.ButtonEvent,
+	clearCh <-chan config.ClearEvent,
+	localStateCh <-chan config.ElevatorState,
+	peerStateCh <-chan config.ElevatorState,
+	peerUpdateCh <-chan config.PeerUpdate,
+	ordersOutCh chan<- Orders,
+	OrderTxCh chan<- OrderMsg,
+	OrderRxCh <-chan OrderMsg,
+) {
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
-	initializeLocalOrderTracker(localOrderView, myID)
-	ws.Alive[myID] = true
 
+	ws.Alive[myID] = true
 	ws.States[myID] = config.ElevatorState{
 		ID:          myID,
-		Floor:       0, // Start at floor 0 instead of -1
+		Floor:       0,
 		Behaviour:   config.BehIdle,
 		Direction:   config.DirStop,
 		CabRequests: make([]bool, config.N_FLOORS),
 	}
 
-	// Hardcoded peers for local testing (network broadcast doesn't work on localhost)
+	// Kun states for lokal testing, ikke alive
 	for _, id := range []string{"elev1", "elev2", "elev3"} {
 		if id != myID {
 			ws.States[id] = config.ElevatorState{
@@ -41,44 +39,49 @@ func Run(
 				Direction:   config.DirStop,
 				CabRequests: make([]bool, config.N_FLOORS),
 			}
-			//ws.Alive[id] = true
 		}
 	}
 
 	ordersOutCh <- buildMyLocalOrders(&ws, myID)
-	loop:
+
+mainLoop:
 	for {
 		changed := false
+
 		select {
 		case btn := <-buttonCh:
-	
-		
-			key := OrderKey{
-				OwnerID: myID,
+			ownerID := ownerForButton(myID, btn.Button)
+			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
+
+			info := localOrderView[key] // zero-value hvis key ikke finnes
+
+			if info.Phase != NoOrder {
+				continue mainLoop
+			}
+
+			info.Phase = Unconfirmed
+			info.SeenBy = map[string]bool{myID: true}
+			localOrderView[key] = info
+
+			OrderTxCh <- OrderMsg{
+				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
+				Phase:   Unconfirmed,
+				SeenBy:  copySeenBy(info.SeenBy),
 			}
 
-			// Hvis ordren allerede er Confirmed eller Unconfirmed, trenger vi
-			// vanligvis ikke starte samme prosess på nytt.
-			if info, ok := localOrderView[key]; ok && info.Phase == NoOrder {
-				info.Phase = Unconfirmed
-				info.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = info
-			
-				OrderTxCh <- OrderMsg{
-					OwnerID: myID,
-					Floor:   btn.Floor,
-					Button:  btn.Button,
-					Phase:   Unconfirmed,
-					SeenBy:  copySeenBy(info.SeenBy),
+			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
+			if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+				if confirmOrderInWorldState(&ws, key) {
+					changed = true
 				}
+				info.Phase = Confirmed
+				info.SeenBy = make(map[string]bool)
+				localOrderView[key] = info
 			}
-		
-			
 
 		case cl := <-clearCh:
-			fmt.Printf("DEBUG: Got clearCh for floor %d\n", cl.Floor)
 			clears := []struct {
 				shouldClear bool
 				button      config.ButtonType
@@ -87,38 +90,40 @@ func Run(
 				{cl.ClearHallUp, config.BT_HallUp},
 				{cl.ClearHallDown, config.BT_HallDown},
 			}
-		
+
 			for _, clearInfo := range clears {
 				if !clearInfo.shouldClear {
-					fmt.Printf("DEBUG: Button %d not marked for clear\n", clearInfo.button)
 					continue
 				}
-				
-				key := OrderKey{
-					OwnerID: myID,
+
+				ownerID := ownerForButton(myID, clearInfo.button)
+				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
+
+				info := localOrderView[key]
+
+				// Start bare clear hvis ordren faktisk er confirmed lokalt
+				if info.Phase != Confirmed {
+					continue
+				}
+
+				info.Phase = Served
+				info.SeenBy = map[string]bool{myID: true}
+				localOrderView[key] = info
+
+				OrderTxCh <- OrderMsg{
+					OwnerID: ownerID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
+					Phase:   Served,
+					SeenBy:  copySeenBy(info.SeenBy),
 				}
-				fmt.Printf("DEBUG: Checking key %+v\n", key)
-				if info, ok := localOrderView[key]; ok{
-					fmt.Printf("DEBUG: Found order, phase=%d (Confirmed=%d)\n", info.Phase, Confirmed)
-					// Oppdater til Served
-					if info.Phase == Confirmed {
-						fmt.Printf("DEBUG: Sending OrderMsg\n")
-						info.Phase = Served
-						info.SeenBy = map[string]bool{myID: true}
-						localOrderView[key] = info
-				
-						OrderTxCh <- OrderMsg{
-							OwnerID: myID,
-							Floor:   cl.Floor,
-							Button:  clearInfo.button,
-							Phase:   Served,
-							SeenBy:  copySeenBy(info.SeenBy),
-						}
-					}else {
-            			fmt.Printf("DEBUG: Order not found in localOrderView\n")
-        			}
+
+				// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+					if clearOrderInWorldState(&ws, key) {
+						changed = true
+					}
+					delete(localOrderView, key)
 				}
 			}
 
@@ -129,62 +134,55 @@ func Run(
 			ws.States[pst.ID] = pst
 
 		case pu := <-peerUpdateCh:
-			currentAliveStatus, exists := ws.Alive[pu.ID]
-			if !exists {
-				// Vi har aldri sett denne heisen før
-				ws.Alive[pu.ID] = pu.Alive
-				changed = true
-			} else if currentAliveStatus != pu.Alive {
-				// Status har endret seg (alive -> dead eller motsatt)
+			prev, exists := ws.Alive[pu.ID]
+			if !exists || prev != pu.Alive {
 				ws.Alive[pu.ID] = pu.Alive
 				changed = true
 			}
 
 		case peerOrder := <-OrderRxCh:
-			key := OrderKey{
-				OwnerID: peerOrder.OwnerID,
-				Floor:   peerOrder.Floor,
-				Button:  peerOrder.Button,
+			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
+
+			info := localOrderView[key]
+			if info.SeenBy == nil {
+				info.SeenBy = make(map[string]bool)
+				info.Phase = NoOrder
 			}
-		
-			// Hent eksisterende info, eller lag en tom
-			info, exists := localOrderView[key]
-			if !exists {
-				info = OrderInfo{
-					SeenBy: make(map[string]bool),
-					Phase:  peerOrder.Phase,
-				}
-			}
+
 			shouldRebroadcast := false
-		
-			// Hvis vi bytter fase, nullstill SeenBy for den nye fasen
-			if info.Phase < peerOrder.Phase {
+
+		/* 	// Ny fase: start ny seenBy-runde
+			if info.Phase != peerOrder.Phase {
 				info.Phase = peerOrder.Phase
 				info.SeenBy = make(map[string]bool)
+				shouldRebroadcast = true
+			} */
 
-				for id, seen := range peerOrder.SeenBy {
-					if seen && !info.SeenBy[id]{
-						info.SeenBy[id] = true
-						shouldRebroadcast = true
-					}
-				}
-				if !info.SeenBy[myID] {
-					info.SeenBy[myID] = true
+			if peerOrder.Phase > info.Phase {
+				// Peer har en nyere fase enn meg -> oppgrader
+				info.Phase = peerOrder.Phase
+				info.SeenBy = make(map[string]bool)
+				shouldRebroadcast = true
+			} else if peerOrder.Phase < info.Phase {
+				// Peer har en eldre fase enn meg -> ignorer meldingen
+				localOrderView[key] = info
+				continue mainLoop
+			}
+
+			// Merge seenBy fra meldingen
+			for id, seen := range peerOrder.SeenBy {
+				if seen && !info.SeenBy[id] {
+					info.SeenBy[id] = true
 					shouldRebroadcast = true
 				}
 			}
 
-			if info.Phase == peerOrder.Phase {
-				for id, seen := range peerOrder.SeenBy {
-					if seen && !info.SeenBy[id]{
-						info.SeenBy[id] = true
-						shouldRebroadcast = true
-					}
-				}
-
+			// Marker at jeg også har sett meldingen
+			if !info.SeenBy[myID] {
+				info.SeenBy[myID] = true
+				shouldRebroadcast = true
 			}
-		
-			// Lagre tilbake i tracker
+
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
@@ -192,73 +190,126 @@ func Run(
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
-					SeenBy:  copySeenBy(info.SeenBy),
 					Phase:   info.Phase,
+					SeenBy:  copySeenBy(info.SeenBy),
 				}
-			}		
+			}
 
 			if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
-				continue loop
+				continue mainLoop
 			}
-		
-			switch info.Phase {
 
+			switch info.Phase {
 			case Unconfirmed:
-				// Overgang: Unconfirmed -> Confirmed
-				switch key.Button {
-				case config.BT_Cab:
-					if _, ok := ws.ConfirmedCabOrders[key.OwnerID]; !ok {
-						ws.ConfirmedCabOrders[key.OwnerID] = make([]bool, config.N_FLOORS)
-					}
-					if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
-						ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
-						changed = true
-					}
-		
-				case config.BT_HallUp, config.BT_HallDown:
-					if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
-						ws.ConfirmedHallOrders[key.Floor][key.Button] = true
-						changed = true
-					}
+				if confirmOrderInWorldState(&ws, key) {
+					changed = true
 				}
-		
-				// Oppdater tracker til Confirmed
 				info.Phase = Confirmed
-				info.SeenBy = make(map[string]bool) // ferdig med denne SeenBy-runden
+				info.SeenBy = make(map[string]bool)
 				localOrderView[key] = info
-		
+				fmt.Printf("[OM %s] CONFIRMED %+v\n", myID, key)
+
 			case Served:
-				// Overgang: Served -> NoOrder
-				switch key.Button {
-				case config.BT_Cab:
-					if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
-						if cabs[key.Floor] {
-							cabs[key.Floor] = false
-							changed = true
-						}
-					}
-		
-				case config.BT_HallUp, config.BT_HallDown:
-					if ws.ConfirmedHallOrders[key.Floor][key.Button] {
-						ws.ConfirmedHallOrders[key.Floor][key.Button] = false
-						changed = true
-					}
+				if clearOrderInWorldState(&ws, key) {
+					changed = true
 				}
-		
-				localOrderView[key] = OrderInfo{
-					Phase:  NoOrder,
-					SeenBy: make(map[string]bool),
-				}
+				delete(localOrderView, key)
+				fmt.Printf("[OM %s] CLEARED %+v\n", myID, key)
 			}
 		}
+
 		if changed {
-			//fmt.Printf("buildOrders\n")
 			orders := buildMyLocalOrders(&ws, myID)
-			fmt.Printf("sender ny order til fsm: %v", orders)
+			fmt.Printf("[OM %s] sender ny order til FSM: %+v\n", myID, orders)
 			ordersOutCh <- orders
 		}
 	}
 }
+
+
+//-------
+
+func ownerForButton(myID string, button config.ButtonType) string {
+	if button == config.BT_Cab {
+		return myID
+	}
+	return ""
+}
+
+func makeOrderKey(ownerID string, floor int, button config.ButtonType) OrderKey {
+	return OrderKey{
+		OwnerID: ownerID,
+		Floor:   floor,
+		Button:  button,
+	}
+}
+
+func copySeenBy(src map[string]bool) map[string]bool {
+	dst := make(map[string]bool)
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
+	for id, isAlive := range alive {
+		if !isAlive {
+			continue
+		}
+		if !seenBy[id] {
+			return false
+		}
+	}
+	return true
+}
+
+func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
+	changed := false
+
+	switch key.Button {
+	case config.BT_Cab:
+		if _, ok := ws.ConfirmedCabOrders[key.OwnerID]; !ok {
+			ws.ConfirmedCabOrders[key.OwnerID] = make([]bool, config.N_FLOORS)
+		}
+		if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
+			ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
+			changed = true
+		}
+
+	case config.BT_HallUp, config.BT_HallDown:
+		if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
+			ws.ConfirmedHallOrders[key.Floor][key.Button] = true
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
+	changed := false
+
+	switch key.Button {
+	case config.BT_Cab:
+		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
+			if cabs[key.Floor] {
+				cabs[key.Floor] = false
+				changed = true
+			}
+		}
+
+	case config.BT_HallUp, config.BT_HallDown:
+		if ws.ConfirmedHallOrders[key.Floor][key.Button] {
+			ws.ConfirmedHallOrders[key.Floor][key.Button] = false
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+
 
 // initialisere
 func NewOrders(numFloors int) Orders {
@@ -394,7 +445,7 @@ func HasOrderAtFloor(orders *Orders, floor int) bool {
 		orders.Hall[floor][config.BT_HallDown]
 }
 
-func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
+/* func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
 	for id, isAlive := range alive {
 		if !isAlive {
 			continue
@@ -429,7 +480,7 @@ func initializeLocalOrderTracker(localOrderView OrderTracker, myID string) {
 			}
 		}
 	}
-}
+} */
 
 func HasOrders(orders *Orders) bool {
 	for floor := 0; floor < config.N_FLOORS; floor++ {
