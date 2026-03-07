@@ -20,6 +20,7 @@ func Run(
 
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
+	initializeLocalOrderTracker(localOrderView, myID)
 	ws.Alive[myID] = true
 
 	ws.States[myID] = config.ElevatorState{
@@ -50,40 +51,34 @@ func Run(
 		changed := false
 		select {
 		case btn := <-buttonCh:
-			ownerID := myID
-			if btn.Button != config.BT_Cab {
-				ownerID = "" // eller annen avtalt verdi for hallordre
-			}
+	
 		
 			key := OrderKey{
-				OwnerID: ownerID,
+				OwnerID: myID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
 			}
 
 			// Hvis ordren allerede er Confirmed eller Unconfirmed, trenger vi
 			// vanligvis ikke starte samme prosess på nytt.
-			if info, ok := localOrderView[key]; ok {
-				if info.Phase == Unconfirmed || info.Phase == Confirmed {
-					continue loop
+			if info, ok := localOrderView[key]; ok && info.Phase == NoOrder {
+				info.Phase = Unconfirmed
+				info.SeenBy = map[string]bool{myID: true}
+				localOrderView[key] = info
+			
+				OrderTxCh <- OrderMsg{
+					OwnerID: myID,
+					Floor:   btn.Floor,
+					Button:  btn.Button,
+					Phase:   Unconfirmed,
+					SeenBy:  copySeenBy(info.SeenBy),
 				}
 			}
 		
-			info := OrderInfo{
-				Phase:  Unconfirmed,
-				SeenBy: map[string]bool{myID: true},
-			}
-			localOrderView[key] = info
-		
-			OrderTxCh <- OrderMsg{
-				OwnerID: ownerID,
-				Floor:   btn.Floor,
-				Button:  btn.Button,
-				Phase:   Unconfirmed,
-				SeenBy:  copySeenBy(info.SeenBy),
-			}
+			
 
 		case cl := <-clearCh:
+			fmt.Printf("DEBUG: Got clearCh for floor %d\n", cl.Floor)
 			clears := []struct {
 				shouldClear bool
 				button      config.ButtonType
@@ -95,31 +90,35 @@ func Run(
 		
 			for _, clearInfo := range clears {
 				if !clearInfo.shouldClear {
+					fmt.Printf("DEBUG: Button %d not marked for clear\n", clearInfo.button)
 					continue
 				}
-				ownerID := myID
-				if clearInfo.button != config.BT_Cab {
-					ownerID = "" // eller annen avtalt verdi for hallordre
-				}
-			
+				
 				key := OrderKey{
-					OwnerID: ownerID,
+					OwnerID: myID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
 				}
-		
-				info := OrderInfo{
-					Phase:  Served,
-					SeenBy: map[string]bool{myID: true},
-				}
-				localOrderView[key] = info
-		
-				OrderTxCh <- OrderMsg{
-					OwnerID: ownerID,
-					Floor:   cl.Floor,
-					Button:  clearInfo.button,
-					Phase:   Served,
-					SeenBy:  copySeenBy(info.SeenBy),
+				fmt.Printf("DEBUG: Checking key %+v\n", key)
+				if info, ok := localOrderView[key]; ok{
+					fmt.Printf("DEBUG: Found order, phase=%d (Confirmed=%d)\n", info.Phase, Confirmed)
+					// Oppdater til Served
+					if info.Phase == Confirmed {
+						fmt.Printf("DEBUG: Sending OrderMsg\n")
+						info.Phase = Served
+						info.SeenBy = map[string]bool{myID: true}
+						localOrderView[key] = info
+				
+						OrderTxCh <- OrderMsg{
+							OwnerID: myID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
+						}
+					}else {
+            			fmt.Printf("DEBUG: Order not found in localOrderView\n")
+        			}
 				}
 			}
 
@@ -159,26 +158,31 @@ func Run(
 			shouldRebroadcast := false
 		
 			// Hvis vi bytter fase, nullstill SeenBy for den nye fasen
-			if info.Phase != peerOrder.Phase {
+			if info.Phase < peerOrder.Phase {
 				info.Phase = peerOrder.Phase
 				info.SeenBy = make(map[string]bool)
-				shouldRebroadcast = true
-			}
-		
-			// Merge inn SeenBy fra meldingen
-			for id, seen := range peerOrder.SeenBy {
-				if seen && !info.SeenBy[id]{
-					info.SeenBy[id] = true
+
+				for id, seen := range peerOrder.SeenBy {
+					if seen && !info.SeenBy[id]{
+						info.SeenBy[id] = true
+						shouldRebroadcast = true
+					}
+				}
+				if !info.SeenBy[myID] {
+					info.SeenBy[myID] = true
 					shouldRebroadcast = true
 				}
 			}
-		
-			// Marker at jeg også har sett denne meldingen
-			if !info.SeenBy[myID] {
-				info.SeenBy[myID] = true
-				shouldRebroadcast = true
+
+			if info.Phase == peerOrder.Phase {
+				for id, seen := range peerOrder.SeenBy {
+					if seen && !info.SeenBy[id]{
+						info.SeenBy[id] = true
+						shouldRebroadcast = true
+					}
+				}
+
 			}
-		
 		
 			// Lagre tilbake i tracker
 			localOrderView[key] = info
@@ -250,6 +254,7 @@ func Run(
 		if changed {
 			//fmt.Printf("buildOrders\n")
 			orders := buildMyLocalOrders(&ws, myID)
+			fmt.Printf("sender ny order til fsm: %v", orders)
 			ordersOutCh <- orders
 		}
 	}
@@ -408,6 +413,33 @@ func copySeenBy(src map[string]bool) map[string]bool {
 	}
 	return dst
 }
+
+func initializeLocalOrderTracker(localOrderView OrderTracker, myID string) {
+	buttons := []config.ButtonType{config.BT_HallUp, config.BT_HallDown, config.BT_Cab}
+
+	for floor := 0; floor < config.N_FLOORS; floor++ {
+		for _, button := range buttons {
+			localOrderView[OrderKey{
+				OwnerID: myID,
+				Floor:   floor,
+				Button:  button,
+			}] = OrderInfo{
+				Phase:  NoOrder,
+				SeenBy: map[string]bool{myID: true},
+			}
+		}
+	}
+}
+
+func HasOrders(orders *Orders) bool {
+	for floor := 0; floor < config.N_FLOORS; floor++ {
+		if HasOrderAtFloor(orders, floor) {
+			return true
+		}
+	}
+	return false
+}
+
 
 // apply button til worldstate
 /* func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
