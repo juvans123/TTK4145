@@ -76,20 +76,20 @@ func main() {
 
 	ordersOutCh := make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
-	localStateCh := make(chan config.ElevatorState)
+	//localStateCh := make(chan config.ElevatorState)
 	peerUpdateCh := make(chan config.PeerUpdate)
 
 	fsmStateCh := make(chan config.ElevatorState, 16) // fra FSM
-	//omLocalStateCh  := make(chan config.ElevatorState, 16) // til OM
-	//netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
+	omLocalStateCh  := make(chan config.ElevatorState, 16) // til OM
+	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
 
 	// OM og broadcaster leser fra samme kanal -> konflikt
-	/* go func() {
+	go func() {
 		for state := range fsmStateCh {
 			omLocalStateCh <- state
 			netLocalStateCh <- state
 		}
-	}() */
+	}() 
 
 	// Hardware polling
 	go elevio.PollButtons(buttonCh)
@@ -106,7 +106,7 @@ func main() {
 	go network.Transmitter(statePort, stateTx)
 	go network.Receiver(statePort, stateRx)
 
-	go network.RunStateBroadcast(myID, fsmStateCh, stateTx)
+	go network.RunStateBroadcast(myID, netLocalStateCh, stateTx)
 	go network.RunStateReceive(myID, stateRx, peerStateCh)
 
 	// --- Network: bcast HallOrders ---
@@ -127,7 +127,7 @@ func main() {
 	//-----------------
 
 	// Order manager
-	go om.Run(myID, buttonCh, clearCh, localStateCh, peerStateCh, peerUpdateCh, ordersOutCh, OrderTx, OrderRx)
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerUpdateCh, ordersOutCh, OrderTx, OrderRx)
 
 	// FSM
 	t := timer.NewDoorTimer()

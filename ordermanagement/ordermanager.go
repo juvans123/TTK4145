@@ -21,14 +21,6 @@ func Run(
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
 	ws.Alive[myID] = true
-	peerID := ""
-	
-
-	if myID == "elev1"{
-		peerID = "elev2"
-	} else{
-		peerID = "elev1"
-	}
 
 	ws.States[myID] = config.ElevatorState{
 		ID:          myID,
@@ -48,34 +40,50 @@ func Run(
 				Direction:   config.DirStop,
 				CabRequests: make([]bool, config.N_FLOORS),
 			}
-			ws.Alive[id] = true
+			//ws.Alive[id] = true
 		}
 	}
 
 	ordersOutCh <- buildMyLocalOrders(&ws, myID)
+	loop:
 	for {
 		changed := false
 		select {
 		case btn := <-buttonCh:
-			//apply button locoal
-
-			// add order to tracker for this elevator
-			key := OrderKey{OwnerID: myID, Floor: btn.Floor, Button: btn.Button}
-			localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: true}, Phase: Confirmed}
-
-			//lage message for sending
-			msg := OrderMsg{
-				OwnerID: myID,
+			ownerID := myID
+			if btn.Button != config.BT_Cab {
+				ownerID = "" // eller annen avtalt verdi for hallordre
+			}
+		
+			key := OrderKey{
+				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
-				SeenBy:  map[string]bool{myID: true},
-				Phase:   Confirmed,
 			}
 
-			OrderTxCh <- msg
+			// Hvis ordren allerede er Confirmed eller Unconfirmed, trenger vi
+			// vanligvis ikke starte samme prosess på nytt.
+			if info, ok := localOrderView[key]; ok {
+				if info.Phase == Unconfirmed || info.Phase == Confirmed {
+					continue loop
+				}
+			}
+		
+			info := OrderInfo{
+				Phase:  Unconfirmed,
+				SeenBy: map[string]bool{myID: true},
+			}
+			localOrderView[key] = info
+		
+			OrderTxCh <- OrderMsg{
+				OwnerID: ownerID,
+				Floor:   btn.Floor,
+				Button:  btn.Button,
+				Phase:   Unconfirmed,
+				SeenBy:  copySeenBy(info.SeenBy),
+			}
 
 		case cl := <-clearCh:
-			// Definer hvilke clear-typer som skal håndteres
 			clears := []struct {
 				shouldClear bool
 				button      config.ButtonType
@@ -84,39 +92,42 @@ func Run(
 				{cl.ClearHallUp, config.BT_HallUp},
 				{cl.ClearHallDown, config.BT_HallDown},
 			}
-
-			// For hver clear-type som er true, oppdater tracker og send melding
+		
 			for _, clearInfo := range clears {
-				if clearInfo.shouldClear {
-					key := OrderKey{OwnerID: myID, Floor: cl.Floor, Button: clearInfo.button}
-					localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: true}, Phase: NoOrder}
-
-					// Lage melding for sending
-					msg := OrderMsg{
-						OwnerID: myID,
-						Floor:   cl.Floor,
-						Button:  clearInfo.button,
-						SeenBy:  map[string]bool{myID: true},
-						Phase:   NoOrder,
-					}
-
-					OrderTxCh <- msg
+				if !clearInfo.shouldClear {
+					continue
+				}
+				ownerID := myID
+				if clearInfo.button != config.BT_Cab {
+					ownerID = "" // eller annen avtalt verdi for hallordre
+				}
+			
+				key := OrderKey{
+					OwnerID: ownerID,
+					Floor:   cl.Floor,
+					Button:  clearInfo.button,
+				}
+		
+				info := OrderInfo{
+					Phase:  Served,
+					SeenBy: map[string]bool{myID: true},
+				}
+				localOrderView[key] = info
+		
+				OrderTxCh <- OrderMsg{
+					OwnerID: ownerID,
+					Floor:   cl.Floor,
+					Button:  clearInfo.button,
+					Phase:   Served,
+					SeenBy:  copySeenBy(info.SeenBy),
 				}
 			}
 
 		case st := <-localStateCh:
-			/* st.ID = myID
-			if !statesEqual(ws.States[myID], st) {
-				ws.States[myID] = st
-				changed = true
-			} */
 			ws.States[st.ID] = st
-			//changed = true
 
 		case pst := <-peerStateCh:
-			// Update peer state when received (overrides hardcoded defaults)
 			ws.States[pst.ID] = pst
-			//changed = true
 
 		case pu := <-peerUpdateCh:
 			currentAliveStatus, exists := ws.Alive[pu.ID]
@@ -131,52 +142,110 @@ func Run(
 			}
 
 		case peerOrder := <-OrderRxCh:
-
-
-			if peerOrder.Phase == Confirmed {
-				//setter til seen i egen
-				key := OrderKey{OwnerID: myID, Floor: peerOrder.Floor, Button: peerOrder.Button}
-				localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: true, peerID: true}, Phase: Confirmed}
-				// Hvis begge har sett orderen Sett ordren til confirmed i world state
-
-				if localOrderView[key].SeenBy[myID] && localOrderView[key].SeenBy[peerID]{
-					switch peerOrder.Button {
-					case config.BT_Cab:
-						// make sure we've allocated the slice for this owner
-						if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; !ok {
-							ws.ConfirmedCabOrders[peerOrder.OwnerID] = make([]bool, config.N_FLOORS)
-						}
-						ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = true
-						changed = true
-					case config.BT_HallUp, config.BT_HallDown:
-						ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = true
-						changed = true
-					}
-					
-				}
+			key := OrderKey{
+				OwnerID: peerOrder.OwnerID,
+				Floor:   peerOrder.Floor,
+				Button:  peerOrder.Button,
 			}
-			if peerOrder.Phase == NoOrder {
-				
-				key := OrderKey{OwnerID: myID, Floor: peerOrder.Floor, Button: peerOrder.Button}
-				localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: false, peerID: false}, Phase: NoOrder}
-				// Hvis begge har sett orderen Sett ordren til confirmed i world state
-
-				if !localOrderView[key].SeenBy[myID] && !localOrderView[key].SeenBy[peerID]{
-				// Sett ordren til none i world state
 		
-					switch peerOrder.Button {
-					case config.BT_Cab:
-						if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; ok {
-							ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = false
-						}
+			// Hent eksisterende info, eller lag en tom
+			info, exists := localOrderView[key]
+			if !exists {
+				info = OrderInfo{
+					SeenBy: make(map[string]bool),
+					Phase:  peerOrder.Phase,
+				}
+			}
+			shouldRebroadcast := false
+		
+			// Hvis vi bytter fase, nullstill SeenBy for den nye fasen
+			if info.Phase != peerOrder.Phase {
+				info.Phase = peerOrder.Phase
+				info.SeenBy = make(map[string]bool)
+				shouldRebroadcast = true
+			}
+		
+			// Merge inn SeenBy fra meldingen
+			for id, seen := range peerOrder.SeenBy {
+				if seen && !info.SeenBy[id]{
+					info.SeenBy[id] = true
+					shouldRebroadcast = true
+				}
+			}
+		
+			// Marker at jeg også har sett denne meldingen
+			if !info.SeenBy[myID] {
+				info.SeenBy[myID] = true
+				shouldRebroadcast = true
+			}
+		
+		
+			// Lagre tilbake i tracker
+			localOrderView[key] = info
+
+			if shouldRebroadcast {
+				OrderTxCh <- OrderMsg{
+					OwnerID: key.OwnerID,
+					Floor:   key.Floor,
+					Button:  key.Button,
+					SeenBy:  copySeenBy(info.SeenBy),
+					Phase:   info.Phase,
+				}
+			}		
+
+			if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
+				continue loop
+			}
+		
+			switch info.Phase {
+
+			case Unconfirmed:
+				// Overgang: Unconfirmed -> Confirmed
+				switch key.Button {
+				case config.BT_Cab:
+					if _, ok := ws.ConfirmedCabOrders[key.OwnerID]; !ok {
+						ws.ConfirmedCabOrders[key.OwnerID] = make([]bool, config.N_FLOORS)
+					}
+					if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
+						ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
 						changed = true
-					case config.BT_HallUp, config.BT_HallDown:
-						ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = false
+					}
+		
+				case config.BT_HallUp, config.BT_HallDown:
+					if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
+						ws.ConfirmedHallOrders[key.Floor][key.Button] = true
 						changed = true
 					}
 				}
+		
+				// Oppdater tracker til Confirmed
+				info.Phase = Confirmed
+				info.SeenBy = make(map[string]bool) // ferdig med denne SeenBy-runden
+				localOrderView[key] = info
+		
+			case Served:
+				// Overgang: Served -> NoOrder
+				switch key.Button {
+				case config.BT_Cab:
+					if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
+						if cabs[key.Floor] {
+							cabs[key.Floor] = false
+							changed = true
+						}
+					}
+		
+				case config.BT_HallUp, config.BT_HallDown:
+					if ws.ConfirmedHallOrders[key.Floor][key.Button] {
+						ws.ConfirmedHallOrders[key.Floor][key.Button] = false
+						changed = true
+					}
+				}
+		
+				localOrderView[key] = OrderInfo{
+					Phase:  NoOrder,
+					SeenBy: make(map[string]bool),
+				}
 			}
-
 		}
 		if changed {
 			//fmt.Printf("buildOrders\n")
@@ -188,90 +257,18 @@ func Run(
 
 // initialisere
 func NewOrders(numFloors int) Orders {
-	o := Orders{
+	orders := Orders{
 		Cab:  make([]bool, numFloors),
 		Hall: make([][]bool, numFloors),
 	}
 
 	for floor := 0; floor < numFloors; floor++ {
-		o.Hall[floor] = make([]bool, 2)
+		orders.Hall[floor] = make([]bool, 2)
 	}
 
-	return o
+	return orders
 }
 
-// apply button til worldstate
-/* func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
-	changed := false
-
-	st := ws.States[myID]
-	/* if st.ID == "" {
-		st.ID = myID
-		st.CabRequests = make([]bool, ws.NumFloors)
-	} 
-
-	switch btn.Button {
-	case config.BT_Cab:
-		if _, ok := ws.ConfirmedCabOrders[myID]; !ok {
-			ws.ConfirmedCabOrders[myID] = make([]bool, config.N_FLOORS)
-		}
-		if !ws.ConfirmedCabOrders[myID][btn.Floor] {
-			ws.ConfirmedCabOrders[myID][btn.Floor] = true
-			changed = true
-		}
-	case config.BT_HallUp, config.BT_HallDown:
-		if !ws.ConfirmedHallOrders[btn.Floor][btn.Button] {
-			ws.ConfirmedHallOrders[btn.Floor][btn.Button] = true
-			changed = true
-		}
-	}
-
-	return changed
-}
- 
-// clear de som skal cleares
-func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
-	floor := ce.Floor
-	changed := false
-	if ce.ClearCab {
-		st := ws.States[myID]
-		if st.CabRequests[floor] {
-			st.CabRequests[floor] = false
-			ws.States[myID] = st
-			changed = true
-		}
-	}
-
-	if ce.ClearHallUp && ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
-		ws.ConfirmedHallOrders[floor][config.BT_HallUp] = false
-		changed = true
-	}
-	if ce.ClearHallDown && ws.ConfirmedHallOrders[floor][config.BT_HallDown] {
-		ws.ConfirmedHallOrders[floor][config.BT_HallDown] = false
-		changed = true
-	}
-
-	return changed
-}
-/* 
-func buildOrdersAllHall(ws *WorldState, myID string) Orders {
-	// MIDLERTIDIG
-	o := NewOrders(config.N_FLOORS)
-
-	state := ws.States[myID]
-
-	for floor := 0; floor < config.N_FLOORS; floor++ {
-		o.Cab[floor] = state.CabRequests[floor]
-	}
-
-	// hall: alle confirmed (midlertidig uten assigner)
-	for floor := 0; floor < config.N_FLOORS; floor++ {
-		o.Hall[floor][0] = (ws.HallRequests[floor][0].Phase == Confirmed)
-		o.Hall[floor][1] = (ws.HallRequests[floor][1].Phase == Confirmed)
-	}
-	return o
-}
- */
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	inputAssigner := buildAssignerInput(ws)
 	path := "./hall_request_assigner/hall_request_assigner"
@@ -391,3 +388,144 @@ func HasOrderAtFloor(orders *Orders, floor int) bool {
 		orders.Hall[floor][config.BT_HallUp] ||
 		orders.Hall[floor][config.BT_HallDown]
 }
+
+func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
+	for id, isAlive := range alive {
+		if !isAlive {
+			continue
+		}
+		if !seenBy[id] {
+			return false
+		}
+	}
+	return true
+}
+
+func copySeenBy(src map[string]bool) map[string]bool {
+	dst := make(map[string]bool)
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+// apply button til worldstate
+/* func applyButton(ws *WorldState, myID string, btn config.ButtonEvent) bool {
+	changed := false
+
+	st := ws.States[myID]
+	/* if st.ID == "" {
+		st.ID = myID
+		st.CabRequests = make([]bool, ws.NumFloors)
+	} 
+
+	switch btn.Button {
+	case config.BT_Cab:
+		if _, ok := ws.ConfirmedCabOrders[myID]; !ok {
+			ws.ConfirmedCabOrders[myID] = make([]bool, config.N_FLOORS)
+		}
+		if !ws.ConfirmedCabOrders[myID][btn.Floor] {
+			ws.ConfirmedCabOrders[myID][btn.Floor] = true
+			changed = true
+		}
+	case config.BT_HallUp, config.BT_HallDown:
+		if !ws.ConfirmedHallOrders[btn.Floor][btn.Button] {
+			ws.ConfirmedHallOrders[btn.Floor][btn.Button] = true
+			changed = true
+		}
+	}
+
+	return changed
+}
+ 
+// clear de som skal cleares
+func applyClear(ws *WorldState, myID string, ce config.ClearEvent) bool {
+	floor := ce.Floor
+	changed := false
+	if ce.ClearCab {
+		st := ws.States[myID]
+		if st.CabRequests[floor] {
+			st.CabRequests[floor] = false
+			ws.States[myID] = st
+			changed = true
+		}
+	}
+
+	if ce.ClearHallUp && ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
+		ws.ConfirmedHallOrders[floor][config.BT_HallUp] = false
+		changed = true
+	}
+	if ce.ClearHallDown && ws.ConfirmedHallOrders[floor][config.BT_HallDown] {
+		ws.ConfirmedHallOrders[floor][config.BT_HallDown] = false
+		changed = true
+	}
+
+	return changed
+}
+/* 
+func buildOrdersAllHall(ws *WorldState, myID string) Orders {
+	// MIDLERTIDIG
+	o := NewOrders(config.N_FLOORS)
+
+	state := ws.States[myID]
+
+	for floor := 0; floor < config.N_FLOORS; floor++ {
+		o.Cab[floor] = state.CabRequests[floor]
+	}
+
+	// hall: alle confirmed (midlertidig uten assigner)
+	for floor := 0; floor < config.N_FLOORS; floor++ {
+		o.Hall[floor][0] = (ws.HallRequests[floor][0].Phase == Confirmed)
+		o.Hall[floor][1] = (ws.HallRequests[floor][1].Phase == Confirmed)
+	}
+	return o
+}
+ */
+
+
+
+
+
+ /* if peerOrder.Phase == Confirmed {
+				//setter til seen i egen
+				key := OrderKey{OwnerID: myID, Floor: peerOrder.Floor, Button: peerOrder.Button}
+				localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: true, peerID: true}, Phase: Confirmed}
+				// Hvis begge har sett orderen Sett ordren til confirmed i world state
+
+				if localOrderView[key].SeenBy[myID] && localOrderView[key].SeenBy[peerID]{
+					switch peerOrder.Button {
+					case config.BT_Cab:
+						// make sure we've allocated the slice for this owner
+						if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; !ok {
+							ws.ConfirmedCabOrders[peerOrder.OwnerID] = make([]bool, config.N_FLOORS)
+						}
+						ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = true
+						changed = true
+					case config.BT_HallUp, config.BT_HallDown:
+						ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = true
+						changed = true
+					}
+					
+				}
+			} *
+			if peerOrder.Phase == NoOrder {
+				
+				key := OrderKey{OwnerID: myID, Floor: peerOrder.Floor, Button: peerOrder.Button}
+				localOrderView[key] = OrderInfo{SeenBy: map[string]bool{myID: false, peerID: false}, Phase: NoOrder}
+				// Hvis begge har sett orderen Sett ordren til confirmed i world state
+
+				if !localOrderView[key].SeenBy[myID] && !localOrderView[key].SeenBy[peerID]{
+				// Sett ordren til none i world state
+		
+					switch peerOrder.Button {
+					case config.BT_Cab:
+						if _, ok := ws.ConfirmedCabOrders[peerOrder.OwnerID]; ok {
+							ws.ConfirmedCabOrders[peerOrder.OwnerID][peerOrder.Floor] = false
+						}
+						changed = true
+					case config.BT_HallUp, config.BT_HallDown:
+						ws.ConfirmedHallOrders[peerOrder.Floor][peerOrder.Button] = false
+						changed = true
+					}
+				}
+			}*/
