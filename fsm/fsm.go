@@ -38,12 +38,17 @@ func Run(
 	elevatorInit(&e)
 	publishState(myID, e, stateOutCh)
 
+	period := 5000 * time.Millisecond
+	ticker := time.NewTicker(period)
+	defer ticker.Stop()
+
 
 	for {
 		select {
 
 		// -------- Orders snapshot fra OM --------
 		case newOrders := <-omOrdersCh:
+			fmt.Printf("[FSM %s] Got orders, behavior=%s, floor=%d\n", myID, e.Behavior, e.Floor)
 			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
 			e.Orders = newOrders
@@ -149,6 +154,10 @@ func Run(
 				}
 			}
 			publishState(myID, e, stateOutCh)
+		case <-ticker.C:
+			//fmt.Println("Im Alive: %s", myID)
+			fmt.Printf("[FSM %s] Status: behavior=%s, floor=%d, dir=%s, hasOrders=%v\n", 
+        myID, e.Behavior, e.Floor, e.Dir, om.HasOrders(&e.Orders))
 		}
 	}
 }
