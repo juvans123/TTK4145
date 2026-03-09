@@ -72,7 +72,9 @@ mainLoop:
 			}
 
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
+			fmt.Printf("Her er jeg:  %s", myID)
 			if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+				fmt.Printf("Id %s is the only one alive", myID)
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
@@ -141,6 +143,21 @@ mainLoop:
 			if !exists || prev != pe.Alive {
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
+				
+				// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
+				if !pe.Alive {
+					for key, info := range localOrderView {
+						if info.Phase == Unconfirmed || info.Phase == Served {
+							OrderTxCh <- OrderMsg{
+								OwnerID: key.OwnerID,
+								Floor:   key.Floor,
+								Button:  key.Button,
+								Phase:   info.Phase,
+								SeenBy:  copySeenBy(info.SeenBy),
+							}
+						}
+					}
+				}
 			}
 
 		case peerOrder := <-OrderRxCh:
@@ -349,6 +366,7 @@ func NewOrders(numFloors int) Orders {
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	inputAssigner := buildAssignerInput(ws)
+	//fmt.Printf("InputAssigner %+v\n", inputAssigner)
 	path := "./hall_request_assigner/hall_request_assigner"
 
 	assignments, err := CallAssigner(path, inputAssigner)

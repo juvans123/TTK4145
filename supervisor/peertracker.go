@@ -1,6 +1,6 @@
 package supervisor
 
-import "fmt"
+//import "fmt"
 
 // peerInfo tracks the state of a single peer
 type peerInfo struct {
@@ -76,8 +76,8 @@ func (pt *peerTracker) detectHeartbeatTimeouts(myCounter uint8) []peerUpdate {
 		missedHeartbeats := Delta(myCounter, peer.lastSeenAt) //Vår counter som referanse // -1 fordi differansen altid er >0
 		oldState := peer.state
 
-		fmt.Printf("[PeerTracker] %s: missedHeartbeats=%d (suspect>=%d,) state=%s\n",
-			id, missedHeartbeats, pt.suspectThreshold, peer.state)
+		//fmt.Printf("[PeerTracker] %s: missedHeartbeats=%d (suspect>=%d,) state=%s\n",
+		//	id, missedHeartbeats, pt.suspectThreshold, peer.state)
 
 		if missedHeartbeats >= pt.suspectThreshold && peer.state == Alive {
 			updates = append(updates, peerUpdate{
