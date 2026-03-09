@@ -213,7 +213,7 @@ mainLoop:
 				info.Phase = Confirmed
 				info.SeenBy = make(map[string]bool)
 				localOrderView[key] = info
-				fmt.Printf("[OM %s] CONFIRMED %+v\n", myID, key)
+				//fmt.Printf("[OM %s] CONFIRMED %+v\n", myID, key)
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
@@ -229,7 +229,7 @@ mainLoop:
 
 		if changed {
 			orders := buildMyLocalOrders(&ws, myID)
-			fmt.Printf("[OM %s] sender ny order til FSM: %+v\n", myID, orders)
+			//fmt.Printf("[OM %s] sender ny order til FSM: %+v\n", myID, orders)
 			ordersOutCh <- orders
 		}
 	}

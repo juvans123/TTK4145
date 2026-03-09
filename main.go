@@ -67,7 +67,7 @@ func main() {
 	flag.Parse()
 	myID := *idFlag
 
-	elevio.Init(*addrFlag, *floorsFlag)
+	elevio.Init(*addrFlag, *floorsFlag) 
 
 	buttonCh := make(chan config.ButtonEvent)
 	floorCh := make(chan int)
