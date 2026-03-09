@@ -1,4 +1,5 @@
 package config
+import "time"
 
 const N_FLOORS = 4
 type TravelDirection int
@@ -61,3 +62,18 @@ type PeerUpdate struct {
     Alive bool
 }
 
+type SupervisorConfig struct {
+	TickInterval time.Duration
+    SuspectThreshold int
+	ConsensusRequired int
+    HeartbeatPort int
+}
+
+func DefaultSupervisorConfig() SupervisorConfig {
+	return SupervisorConfig{
+		TickInterval:     3 * time.Second,
+		SuspectThreshold: 5,
+		ConsensusRequired: 2,
+        HeartbeatPort: 15647,
+	}
+}
