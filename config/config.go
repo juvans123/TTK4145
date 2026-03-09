@@ -69,6 +69,9 @@ type PeerEvent struct{
     Alive bool
 }
 
+type LightState struct {
+    Hall [N_FLOORS][2]bool
+    Cab []bool
 type SupervisorConfig struct {
 	TickInterval time.Duration
     SuspectThreshold int

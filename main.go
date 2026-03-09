@@ -37,6 +37,8 @@ func main() {
 	omLocalStateCh := make(chan config.ElevatorState, 16)  // til OM
 	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
 
+	buttonLights := make(chan config.LightState, 16) // fra OM til FSM
+
 	// OM og broadcaster leser fra samme kanal -> konflikt
 	go func() {
 		for state := range fsmStateCh {
@@ -94,11 +96,12 @@ func main() {
 	}()
 
 	// Order manager
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, OrderTx, OrderRx)
+  
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, OrderTx, OrderRx, buttonLights)
 
 	// FSM
 	t := timer.NewDoorTimer()
-	go fsm.Run(myID, t, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh)
+	go fsm.Run(myID, t, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLights)
 
 	select {}
 }
