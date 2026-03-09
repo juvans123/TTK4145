@@ -12,54 +12,6 @@ import (
 	//"time"
 )
 
-/*
-func testAssigner() {
-	// Test input for the assigner
-	in := om.AssignerInput{
-		HallRequests: [][]bool{
-			{false, false},
-			{true, false},
-			{false, true},
-			{true, false},
-		},
-		States: map[string]config.ElevatorState{
-			"id_1": {
-				ID:          "id_1",
-				Behaviour:   config.BehIdle,
-				Floor:       0,
-				Direction:   config.DirStop,
-				CabRequests: []bool{false, false, false, false},
-			},
-			"id_2": {
-				ID:          "id_2",
-				Behaviour:   config.BehMoving,
-				Floor:       2,
-				Direction:   config.DirUp,
-				CabRequests: []bool{false, true, false, false},
-			},
-			"id_3": {
-				ID:          "id_3",
-				Behaviour:   config.BehMoving,
-				Floor:       3,
-				Direction:   config.DirDown,
-				CabRequests: []bool{false, false, false, true},
-			},
-		},
-	}
-
-	// Call the assigner
-	out, err := om.CallAssigner("./hall_request_assigner/hall_request_assigner", in)
-	if err != nil {
-		fmt.Println("Assigner error:", err)
-		return
-	}
-
-	// Print the result
-	b, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println("Assigner output:")
-	fmt.Println(string(b))
-} */
-
 func main() {
 	idFlag := flag.String("id", "elev1", "Elevator ID (elev1, elev2, elev3, ...)")
 	addrFlag := flag.String("addr", "localhost:12345", "Elevator server address")
@@ -135,3 +87,53 @@ func main() {
 
 	select {}
 }
+
+
+
+/*
+func testAssigner() {
+	// Test input for the assigner
+	in := om.AssignerInput{
+		HallRequests: [][]bool{
+			{false, false},
+			{true, false},
+			{false, true},
+			{true, false},
+		},
+		States: map[string]config.ElevatorState{
+			"id_1": {
+				ID:          "id_1",
+				Behaviour:   config.BehIdle,
+				Floor:       0,
+				Direction:   config.DirStop,
+				CabRequests: []bool{false, false, false, false},
+			},
+			"id_2": {
+				ID:          "id_2",
+				Behaviour:   config.BehMoving,
+				Floor:       2,
+				Direction:   config.DirUp,
+				CabRequests: []bool{false, true, false, false},
+			},
+			"id_3": {
+				ID:          "id_3",
+				Behaviour:   config.BehMoving,
+				Floor:       3,
+				Direction:   config.DirDown,
+				CabRequests: []bool{false, false, false, true},
+			},
+		},
+	}
+
+	// Call the assigner
+	out, err := om.CallAssigner("./hall_request_assigner/hall_request_assigner", in)
+	if err != nil {
+		fmt.Println("Assigner error:", err)
+		return
+	}
+
+	// Print the result
+	b, _ := json.MarshalIndent(out, "", "  ")
+	fmt.Println("Assigner output:")
+	fmt.Println(string(b))
+} */

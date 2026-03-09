@@ -6,7 +6,6 @@ type TravelDirection int
 const (
 	TD_Up   TravelDirection = iota
 	TD_Down 
-	TD_Stop 
 )
 
 type OrderEvent struct{

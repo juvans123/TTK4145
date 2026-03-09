@@ -358,7 +358,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	}
 
 	myAssignedHall, ok := assignments[myID]
-	fmt.Printf("Assigned hall for %s: %+v\n", myID, myAssignedHall)
+	//fmt.Printf("Assigned hall for %s: %+v\n", myID, myAssignedHall)
 	if !ok {
 		fmt.Printf("MyID %s not in assigner output\n", myID)
 		return buildCabOnlyOrders(ws, myID)
