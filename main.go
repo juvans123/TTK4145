@@ -2,12 +2,14 @@ package main
 
 import (
 	//"encoding/json"
+	"context"
 	"flag"
 	"heis/config"
 	"heis/elevio"
 	"heis/fsm"
 	"heis/network"
 	om "heis/ordermanagement"
+	"heis/supervisor"
 	"heis/timer"
 	//"time"
 )
@@ -19,7 +21,7 @@ func main() {
 	flag.Parse()
 	myID := *idFlag
 
-	elevio.Init(*addrFlag, *floorsFlag) 
+	elevio.Init(*addrFlag, *floorsFlag)
 
 	buttonCh := make(chan config.ButtonEvent)
 	floorCh := make(chan int)
@@ -29,10 +31,10 @@ func main() {
 	ordersOutCh := make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
 	//localStateCh := make(chan config.ElevatorState)
-	peerUpdateCh := make(chan config.PeerUpdate)
+	//peerUpdateCh := make(chan config.PeerUpdate)
 
-	fsmStateCh := make(chan config.ElevatorState, 16) // fra FSM
-	omLocalStateCh  := make(chan config.ElevatorState, 16) // til OM
+	fsmStateCh := make(chan config.ElevatorState, 16)      // fra FSM
+	omLocalStateCh := make(chan config.ElevatorState, 16)  // til OM
 	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
 
 	// OM og broadcaster leser fra samme kanal -> konflikt
@@ -41,7 +43,7 @@ func main() {
 			omLocalStateCh <- state
 			netLocalStateCh <- state
 		}
-	}() 
+	}()
 
 	// Hardware polling
 	go elevio.PollButtons(buttonCh)
@@ -69,8 +71,6 @@ func main() {
 	go network.Transmitter(hallOrderPort, OrderTx)
 	go network.Receiver(hallOrderPort, OrderRx)
 
-	
-
 	// clearPort = 16572
 	//go network.Transmitter(clearPort, clearEventTx)
 	//go network.Receiver(clearPort, clearEventRx)
@@ -78,8 +78,23 @@ func main() {
 	// --- Network: peers alive/dead ---
 	//-----------------
 
+	// --- Supervisor: peer health monitoring ---
+	supCfg := config.DefaultSupervisorConfig()
+
+	hbTx := make(chan supervisor.Heartbeat)
+	hbRx := make(chan supervisor.Heartbeat)
+	go network.Transmitter(supCfg.HeartbeatPort, hbTx)
+	go network.Receiver(supCfg.HeartbeatPort, hbRx)
+
+	peerEventCh := make(chan config.PeerEvent, 16) //Ny
+
+	sup := supervisor.New(supervisor.NewConfig(myID), hbTx, hbRx, peerEventCh)
+	go func() {
+		sup.MonitorPeerHealth(context.Background())
+	}()
+
 	// Order manager
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerUpdateCh, ordersOutCh, OrderTx, OrderRx)
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, OrderTx, OrderRx)
 
 	// FSM
 	t := timer.NewDoorTimer()
@@ -87,8 +102,6 @@ func main() {
 
 	select {}
 }
-
-
 
 /*
 func testAssigner() {

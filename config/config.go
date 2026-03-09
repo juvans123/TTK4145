@@ -1,4 +1,5 @@
 package config
+import "time"
 
 const N_FLOORS = 4
 type TravelDirection int
@@ -56,8 +57,30 @@ type ElevatorState struct {
     CabRequests []bool    `json:"cabRequests"`
 }
 
+/*
 type PeerUpdate struct {
     ID    string
     Alive bool
+} 
+*/
+
+type PeerEvent struct{
+    PeerID string
+    Alive bool
 }
 
+type SupervisorConfig struct {
+	TickInterval time.Duration
+    SuspectThreshold int
+	ConsensusRequired int
+    HeartbeatPort int
+}
+
+func DefaultSupervisorConfig() SupervisorConfig {
+	return SupervisorConfig{
+		TickInterval:     3 * time.Second,
+		SuspectThreshold: 5,
+		ConsensusRequired: 2,
+        HeartbeatPort: 15647,
+	}
+}
