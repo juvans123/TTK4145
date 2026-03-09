@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
- type DoorTimer interface {
+type DoorTimer interface {
 	Reset(d time.Duration)
 	Stop()
 	Timeout() <-chan struct{}
 }
-const doorOpenDuration = 3 * time.Second
 
+const doorOpenDuration = 3 * time.Second
 
 func Run(
 	myID string,
@@ -28,7 +28,8 @@ func Run(
 ) {
 	e := Elevator{
 		Floor:    -1,
-		Dir:      config.TD_Down,
+		Dir:      elevio.MD_Down,
+		TravelDir: config.TD_Down,
 		Behavior: EB_Moving,
 		Orders:   om.NewOrders(4),
 	}
@@ -38,6 +39,9 @@ func Run(
 	elevatorInit(&e)
 	publishState(myID, e, stateOutCh)
 
+	period := 5000 * time.Millisecond
+	ticker := time.NewTicker(period)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -54,26 +58,24 @@ func Run(
 			}
 
 			// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
-			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {  //sett in prevAtFloor
+			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
 				timer.Reset(doorOpenDuration)
 				fmt.Printf("reset dør")
-				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
 			}
-		
+
 			// Hvis idle i etasje og har ordre her: åpne
 			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
-				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
 			}
 
-
-
 			if e.Behavior == EB_Idle {
-				dir, beh := chooseDirection(&e)
-				e.Dir, e.Behavior = dir, beh
+				travelDir, behavior, dir := chooseDirection(&e)
+				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)
 				}
@@ -88,10 +90,22 @@ func Run(
 			if e.Behavior == EB_Moving && !stopPressed {
 				if shouldStop(&e) {
 					stopMotor()
-					e.Behavior = EB_DoorOpen
-					openDoorAndSetLamp(timer)
-					ce := ComputeClearEvent(&e.Orders, e.Floor, e.Dir)
-					clearCh <- ce
+					e.Dir = elevio.MD_Stop
+					e.Behavior = EB_Idle
+					fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
+					if om.HasOrderAtFloor(&e.Orders, e.Floor) {
+						e.Behavior = EB_DoorOpen
+						openDoorAndSetLamp(timer)
+						ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+						clearCh <- ce
+					} /* else {
+						// Boundary stop without an order at this floor: choose a new valid direction.
+						dir, beh := chooseDirection(&e)
+						e.Dir, e.Behavior = dir, beh
+						if e.Behavior == EB_Moving {
+							setMotor(e.Dir)
+						}
+					} */
 				}
 			}
 			publishState(myID, e, stateOutCh)
@@ -107,11 +121,13 @@ func Run(
 			}
 
 			closeDoorAndResetLamp(timer)
-			dir, beh := chooseDirection(&e)
-			e.Dir, e.Behavior = dir, beh
+
+			travelDir, behavior, dir := chooseDirection(&e)
+			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 			if e.Behavior == EB_Moving {
 				setMotor(e.Dir)
 			}
+
 			publishState(myID, e, stateOutCh)
 
 		// -------- Obstruction --------
@@ -125,6 +141,8 @@ func Run(
 
 			if sp {
 				stopMotor()
+				e.Dir = elevio.MD_Stop
+				e.Behavior = EB_Idle
 				floor := elevio.GetFloor()
 
 				if floor >= 0 {
@@ -133,43 +151,48 @@ func Run(
 					//clearer ikke her
 				} else {
 					e.Behavior = EB_Idle
-				} 
+				}
 			} else {
 				// Stopp sluppet: gå tilbake til normal drift
 				if e.Behavior == EB_DoorOpen {
 					timer.Reset(doorOpenDuration)
 				} else if e.Behavior == EB_Idle {
-					dir, beh := chooseDirection(&e)
-					e.Dir, e.Behavior = dir, beh
+
+					travelDir, behavior, dir := chooseDirection(&e)
+					e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 					if e.Behavior == EB_Moving {
 						setMotor(e.Dir)
 					}
 				}
 			}
 			publishState(myID, e, stateOutCh)
+		case <-ticker.C:
+			//fmt.Println("Im Alive: %s", myID)
 		}
 	}
 }
 
-func elevatorInit(e *Elevator){
+func elevatorInit(e *Elevator) {
 	updateButtonLights(e)
-	setMotor(config.TD_Down)
+	setMotor(elevio.MD_Down)
 	for {
-		if elevio.GetFloor() >= 0{
+		if elevio.GetFloor() >= 0 {
 			stopMotor()
+			e.Dir = elevio.MD_Stop
 			e.Behavior = EB_Idle
 			break
 		}
 	}
 }
 
-func setMotor(dir config.TravelDirection) {
+func setMotor(dir elevio.MotorDirection) {
 	switch dir {
-	case config.TD_Up:
+	case elevio.MD_Up:
 		elevio.SetMotorDirection(elevio.MD_Up)
-	case config.TD_Down:
+
+	case elevio.MD_Down:
 		elevio.SetMotorDirection(elevio.MD_Down)
-	default:
+	case elevio.MD_Stop:
 		elevio.SetMotorDirection(elevio.MD_Stop)
 	}
 }
@@ -188,56 +211,63 @@ func closeDoorAndResetLamp(t DoorTimer) {
 	t.Stop()
 }
 
-
 func shouldStop(e *Elevator) bool {
 	floor := e.Floor
-	if e.Orders.Cab[floor]{
+
+	// Never continue past the end floors.
+	if (e.Dir == elevio.MD_Down && floor == 0) || (e.Dir == elevio.MD_Up && floor == config.N_FLOORS-1) {
 		return true
 	}
-	switch e.Dir{
+
+	if e.Orders.Cab[floor] {
+		return true
+	}
+	if !om.HasOrders(&e.Orders) {
+		return true
+	}
+	switch e.TravelDir {
 	case config.TD_Up:
-		if e.Orders.Hall[floor][config.BT_HallUp]{
+		if e.Orders.Hall[floor][config.BT_HallUp] {
 			return true
 		}
-		if e.Orders.Hall[floor][config.BT_HallDown] && !om.OrdersAbove(&e.Orders, floor){
+		if e.Orders.Hall[floor][config.BT_HallDown] && !om.OrdersAbove(&e.Orders, floor) {
 			return true
 		}
 	case config.TD_Down:
-		if e.Orders.Hall[floor][config.BT_HallDown]{
+		if e.Orders.Hall[floor][config.BT_HallDown] {
 			return true
 		}
-		if e.Orders.Hall[floor][config.BT_HallUp] && !om.OrdersBelow(&e.Orders, floor){
+		if e.Orders.Hall[floor][config.BT_HallUp] && !om.OrdersBelow(&e.Orders, floor) {
 			return true
 		}
 	}
 	return false
 }
 
-func chooseDirection(e *Elevator) (config.TravelDirection, Behavior){
+func chooseDirection(e *Elevator) (config.TravelDirection, Behavior, elevio.MotorDirection) {
 	floor := e.Floor
-	if floor < 0{
-		return e.Dir, EB_Idle
+	if floor < 0 {
+		return e.TravelDir, EB_Idle, elevio.MD_Stop
 	}
 
-	switch e.Dir {
+	switch e.TravelDir {
 	case config.TD_Up:
 		if om.OrdersAbove(&e.Orders, floor) {
-			return config.TD_Up, EB_Moving
+			return config.TD_Up, EB_Moving, elevio.MD_Up
 		}
 		if om.OrdersBelow(&e.Orders, floor) {
-			return config.TD_Down, EB_Moving
+			return config.TD_Down, EB_Moving, elevio.MD_Down
 		}
 	case config.TD_Down:
 		if om.OrdersBelow(&e.Orders, floor) {
-			return config.TD_Down, EB_Moving
+			return config.TD_Down, EB_Moving, elevio.MD_Down
 		}
 		if om.OrdersAbove(&e.Orders, floor) {
-			return config.TD_Up, EB_Moving
+			return config.TD_Up, EB_Moving, elevio.MD_Up
 		}
 	}
-	return e.Dir, EB_Idle
+	return e.TravelDir, EB_Idle, elevio.MD_Stop
 }
-
 
 func updateButtonLights(e *Elevator) {
 	for floor := 0; floor < len(e.Orders.Cab); floor++ {
@@ -249,9 +279,9 @@ func updateButtonLights(e *Elevator) {
 
 func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
 	ce := config.ClearEvent{
-		Floor: floor,
-		ClearCab: true, //alltid clear cab på etasje
-		ClearHallUp: false,
+		Floor:         floor,
+		ClearCab:      true, //alltid clear cab på etasje
+		ClearHallUp:   false,
 		ClearHallDown: false,
 	}
 	hallUp := orders.Hall[floor][config.BT_HallUp]
@@ -274,7 +304,7 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 			ce.ClearHallUp = true
 		}
 
-	/* default:
+		/* default:
 		ce.ClearHallUp = hallUp
 		ce.ClearHallDown = hallDown */
 	}
@@ -283,11 +313,12 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 }
 
 func publishState(myID string, e Elevator, stateOutCh chan<- config.ElevatorState) {
-    st := PublicStateFromFSM(e, myID)
+	st := PublicStateFromFSM(e, myID)
+	fmt.Println(st)
 
-    // Ikke blokker FSM hvis mottaker henger
-    select {
-    case stateOutCh <- st:
-    default:
-    }
+	// Ikke blokker FSM hvis mottaker henger
+	select {
+	case stateOutCh <- st:
+	default:
+	}
 }

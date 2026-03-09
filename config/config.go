@@ -1,13 +1,12 @@
 package config
 import "time"
 
-var NumFloors = 4
+const N_FLOORS = 4
 type TravelDirection int
 
 const (
-	TD_Up TravelDirection = iota
-	TD_Down
-	TD_Stop
+	TD_Up   TravelDirection = iota
+	TD_Down 
 )
 
 type OrderEvent struct {

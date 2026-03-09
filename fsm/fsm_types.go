@@ -2,6 +2,7 @@ package fsm
 
 import (
 	"heis/config"
+	"heis/elevio"
 	om "heis/ordermanagement"
 )
 
@@ -18,7 +19,8 @@ const (
 
 type Elevator struct {
 	Floor int
-	Dir config.TravelDirection
+	Dir elevio.MotorDirection
+	TravelDir config.TravelDirection
 	Behavior Behavior
 	Orders om.Orders
 }

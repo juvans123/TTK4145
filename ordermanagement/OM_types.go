@@ -8,29 +8,47 @@ type Orders struct {
 	Hall [][]bool
 }
 
-type HallPhase int
+
+
+type OrderPhase int
 const (
-    HallNone HallPhase = iota
-    HallUnconfirmed
-    HallConfirmed
+    NoOrder OrderPhase = iota
+    Unconfirmed
+    Confirmed
+    Served
 )
 
-type HallOrderState struct {
-    Phase HallPhase
-    SeenBy map[string]uint8
+type OrderMsg struct {
+    OwnerID string
+    Floor int
+    Button config.ButtonType
+    SeenBy map[string]bool
+    Phase OrderPhase
+    //Counter int
 }
 
-/* type HallObservation struct {
-	FromID string
-	Floor int
-	Button config.ButtonType
+type OrderKey struct{
+    OwnerID string
+    Floor int
+    Button config.ButtonType
 }
- */
+
+
+type OrderInfo struct{
+    SeenBy map[string]bool
+    Phase OrderPhase
+    //counter
+}
+
+type OrderTracker map[OrderKey]OrderInfo
+
+
 type WorldState struct {
-    NumFloors int
-    HallRequests [][]HallOrderState
+    ConfirmedHallOrders [config.N_FLOORS][2]bool
+    ConfirmedCabOrders map[string][]bool
     States map[string]config.ElevatorState
     Alive map[string]bool
+    //OrderTracker OrderTracker
     // LastSeen map[string]time.Time
 }
 

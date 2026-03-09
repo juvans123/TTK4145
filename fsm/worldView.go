@@ -1,6 +1,10 @@
 package fsm
 
-import "heis/config"
+import (
+    "heis/config"
+    "heis/elevio"
+)
+
 
 func PublicStateFromFSM(e Elevator, myID string) config.ElevatorState {
 	cabCopy := make([]bool, len(e.Orders.Cab))
@@ -27,13 +31,13 @@ func mapBehaviour(b Behavior) config.Behaviour{
 	}
 }
 
-func mapDir(d config.TravelDirection) config.Direction{
-	switch d {
-    case config.TD_Up:
+func mapDir(dir elevio.MotorDirection) config.Direction{
+	switch dir {
+    case elevio.MD_Up:
         return config.DirUp
-    case config.TD_Down:
+    case elevio.MD_Down:
         return config.DirDown
-    case config.TD_Stop:
+    case elevio.MD_Stop:
         return config.DirStop
     default:
         return config.DirStop
