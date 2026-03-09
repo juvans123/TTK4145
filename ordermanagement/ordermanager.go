@@ -12,7 +12,7 @@ func Run(
 	clearCh <-chan config.ClearEvent,
 	localStateCh <-chan config.ElevatorState,
 	peerStateCh <-chan config.ElevatorState,
-	peerUpdateCh <-chan config.PeerUpdate,
+	peerEventCh <-chan config.PeerEvent,
 	ordersOutCh chan<- Orders,
 	OrderTxCh chan<- OrderMsg,
 	OrderRxCh <-chan OrderMsg,
@@ -136,10 +136,10 @@ mainLoop:
 		case pst := <-peerStateCh:
 			ws.States[pst.ID] = pst
 
-		case pu := <-peerUpdateCh:
-			prev, exists := ws.Alive[pu.ID]
-			if !exists || prev != pu.Alive {
-				ws.Alive[pu.ID] = pu.Alive
+		case pe := <-peerEventCh:
+			prev, exists := ws.Alive[pe.PeerID]
+			if !exists || prev != pe.Alive {
+				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 			}
 

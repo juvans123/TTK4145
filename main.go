@@ -31,7 +31,7 @@ func main() {
 	ordersOutCh := make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
 	//localStateCh := make(chan config.ElevatorState)
-	peerUpdateCh := make(chan config.PeerUpdate)
+	//peerUpdateCh := make(chan config.PeerUpdate)
 
 	fsmStateCh := make(chan config.ElevatorState, 16)      // fra FSM
 	omLocalStateCh := make(chan config.ElevatorState, 16)  // til OM
@@ -86,14 +86,15 @@ func main() {
 	go network.Transmitter(supCfg.HeartbeatPort, hbTx)
 	go network.Receiver(supCfg.HeartbeatPort, hbRx)
 
-	peerEventCh := make(chan supervisor.PeerEvent, 16)
+	peerEventCh := make(chan config.PeerEvent, 16) //Ny
+
 	sup := supervisor.New(supervisor.NewConfig(myID), hbTx, hbRx, peerEventCh)
 	go func() {
 		sup.MonitorPeerHealth(context.Background())
 	}()
 
 	// Order manager
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerUpdateCh, ordersOutCh, OrderTx, OrderRx)
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, OrderTx, OrderRx)
 
 	// FSM
 	t := timer.NewDoorTimer()

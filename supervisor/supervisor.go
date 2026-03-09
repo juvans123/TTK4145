@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 	"fmt"
+	"heis/config"
 	"time"
 )
 
@@ -11,14 +12,14 @@ type Supervisor struct {
 	myCounter   uint8
 	hbTx        chan<- Heartbeat
 	hbRx        <-chan Heartbeat
-	PeerEventTx chan<- PeerEvent
+	PeerEventTx chan<- config.PeerEvent
 }
 
 func New(
 	cfg Config,
 	hbTx chan<- Heartbeat,
 	hbRx <-chan Heartbeat,
-	peerEventTx chan<- PeerEvent,
+	peerEventTx chan<- config.PeerEvent,
 ) *Supervisor {
 	return &Supervisor{
 		config:      cfg,
@@ -82,6 +83,11 @@ func (s *Supervisor) sendEvents(updates []peerUpdate) {
 	for _, u := range updates {
 		fmt.Printf("[Supervisor %s] %s: %s -> %s\n",
 			s.config.MyID, u.peerID, u.oldState, u.newState)
+
+		if u.newState == SuspectedDead{ //Vi hopper over å sende suspecteddead
+			continue
+		}
+
 		select {
 		case s.PeerEventTx <- toPeerEvent(u):
 		default:
@@ -89,8 +95,8 @@ func (s *Supervisor) sendEvents(updates []peerUpdate) {
 	}
 }
 
-func toPeerEvent(u peerUpdate) PeerEvent {
-	return PeerEvent{
+func toPeerEvent(u peerUpdate) config.PeerEvent {
+	return config.PeerEvent{
 		PeerID: u.peerID,
 		Alive:  u.newState == Alive,
 	}

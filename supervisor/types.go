@@ -36,10 +36,11 @@ type Config struct {
 	SupervisorConfig config.SupervisorConfig
 }
 
+/*
 type PeerEvent struct {
 	PeerID string
 	Alive  bool
-}
+} */
 
 func NewConfig(myID string) Config {
 	return Config{

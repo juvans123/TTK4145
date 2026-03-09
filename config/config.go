@@ -57,8 +57,15 @@ type ElevatorState struct {
     CabRequests []bool    `json:"cabRequests"`
 }
 
+/*
 type PeerUpdate struct {
     ID    string
+    Alive bool
+} 
+*/
+
+type PeerEvent struct{
+    PeerID string
     Alive bool
 }
 
