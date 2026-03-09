@@ -25,24 +25,42 @@ func Run(
 	stopCh <-chan bool,
 	clearCh chan<- config.ClearEvent,
 	stateOutCh chan<- config.ElevatorState,
-	setButtonLight <- chan om.WorldState,
+	setButtonLight <-chan config.LightState,
 ) {
 	e := Elevator{
-		Floor:    -1,
-		Dir:      elevio.MD_Down,
+		Floor:     -1,
+		Dir:       elevio.MD_Down,
 		TravelDir: config.TD_Down,
-		Behavior: EB_Moving,
-		Orders:   om.NewOrders(4),
+		Behavior:  EB_Moving,
+		Orders:    om.NewOrders(4),
 	}
 
 	obstructed := false
 	stopPressed := false
 	elevatorInit(&e)
-	publishState(myID, e, stateOutCh)
+
+	lastPublished := PublicStateFromFSM(e, myID)
+	select {
+	case stateOutCh <- lastPublished:
+	default:
+	}
 
 	period := 5000 * time.Millisecond
 	ticker := time.NewTicker(period)
 	defer ticker.Stop()
+
+	publishIfChanged := func() {
+		st := PublicStateFromFSM(e, myID)
+		if st.Floor != lastPublished.Floor ||
+			st.Behaviour != lastPublished.Behaviour ||
+			st.Direction != lastPublished.Direction {
+			select {
+			case stateOutCh <- st:
+				lastPublished = st
+			default:
+			}
+		}
+	}
 
 	for {
 		select {
@@ -54,7 +72,7 @@ func Run(
 			e.Orders = newOrders
 			//updateButtonLights(&e)
 			if stopPressed {
-				publishState(myID, e, stateOutCh)
+				publishIfChanged()
 				continue
 			}
 
@@ -71,6 +89,7 @@ func Run(
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				publishIfChanged()
 				continue
 			}
 
@@ -80,8 +99,8 @@ func Run(
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)
 				}
+				publishIfChanged()
 			}
-			publishState(myID, e, stateOutCh)
 
 		// -------- Floor sensor --------
 		case floor := <-floorCh:
@@ -109,12 +128,11 @@ func Run(
 					} */
 				}
 			}
-			publishState(myID, e, stateOutCh)
+			publishIfChanged()
 
 		// -------- Button light update --------
-		case worldState := <-setButtonLight:
-			updateButtonLights(&worldState, myID)
-			
+		case lightState := <-setButtonLight:
+			updateButtonLights(lightState)
 
 		// -------- Door timeout --------
 		case <-timer.Timeout():
@@ -134,7 +152,7 @@ func Run(
 				setMotor(e.Dir)
 			}
 
-			publishState(myID, e, stateOutCh)
+			publishIfChanged()
 
 		// -------- Obstruction --------
 		case obs := <-obstrCh:
@@ -171,7 +189,7 @@ func Run(
 					}
 				}
 			}
-			publishState(myID, e, stateOutCh)
+			publishIfChanged()
 		case <-ticker.C:
 			//fmt.Println("Im Alive: %s", myID)
 		}
@@ -275,13 +293,14 @@ func chooseDirection(e *Elevator) (config.TravelDirection, Behavior, elevio.Moto
 	return e.TravelDir, EB_Idle, elevio.MD_Stop
 }
 
-func updateButtonLights(ws *om.WorldState, myID string) {
-	for floor := 0; floor < len(ws.ConfirmedCabOrders); floor++ {
-		elevio.SetButtonLamp(config.BT_Cab, floor, ws.ConfirmedCabOrders[myID][floor])
-		elevio.SetButtonLamp(config.BT_HallUp, floor, ws.ConfirmedHallOrders[floor][config.BT_HallUp])
-		elevio.SetButtonLamp(config.BT_HallDown, floor, ws.ConfirmedHallOrders[floor][config.BT_HallDown])
+func updateButtonLights(ls config.LightState) {
+	for floor := 0; floor < config.N_FLOORS; floor++ {
+		elevio.SetButtonLamp(config.BT_HallUp, floor, ls.Hall[floor][config.BT_HallUp])
+		elevio.SetButtonLamp(config.BT_HallDown, floor, ls.Hall[floor][config.BT_HallDown])
+		elevio.SetButtonLamp(config.BT_Cab, floor, ls.Cab[floor])
 	}
 }
+
 
 func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
 	ce := config.ClearEvent{
@@ -316,15 +335,4 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 	}
 
 	return ce
-}
-
-func publishState(myID string, e Elevator, stateOutCh chan<- config.ElevatorState) {
-	st := PublicStateFromFSM(e, myID)
-	fmt.Println(st)
-
-	// Ikke blokker FSM hvis mottaker henger
-	select {
-	case stateOutCh <- st:
-	default:
-	}
 }

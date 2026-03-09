@@ -35,7 +35,7 @@ func main() {
 	omLocalStateCh  := make(chan config.ElevatorState, 16) // til OM
 	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
 
-	buttonLights := make(chan om.WorldState, 16) // fra OM til FSM
+	buttonLights := make(chan config.LightState, 16) // fra OM til FSM
 
 	// OM og broadcaster leser fra samme kanal -> konflikt
 	go func() {

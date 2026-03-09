@@ -61,3 +61,7 @@ type PeerUpdate struct {
     Alive bool
 }
 
+type LightState struct {
+    Hall [N_FLOORS][2]bool
+    Cab []bool
+}
