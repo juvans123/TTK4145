@@ -16,6 +16,7 @@ func Run(
 	ordersOutCh chan<- Orders,
 	OrderTxCh chan<- OrderMsg,
 	OrderRxCh <-chan OrderMsg,
+	setButtonLight chan  <- WorldState,
 ) {
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
@@ -208,6 +209,7 @@ mainLoop:
 			switch info.Phase {
 			case Unconfirmed:
 				if confirmOrderInWorldState(&ws, key) {
+					setButtonLight <- ws
 					changed = true
 				}
 				info.Phase = Confirmed
@@ -217,6 +219,7 @@ mainLoop:
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
+					setButtonLight <- ws
 					changed = true
 				}
 				localOrderView[key] = OrderInfo{

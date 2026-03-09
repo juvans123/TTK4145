@@ -25,6 +25,7 @@ func Run(
 	stopCh <-chan bool,
 	clearCh chan<- config.ClearEvent,
 	stateOutCh chan<- config.ElevatorState,
+	setButtonLight <- chan om.WorldState,
 ) {
 	e := Elevator{
 		Floor:    -1,
@@ -51,7 +52,7 @@ func Run(
 			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
 			e.Orders = newOrders
-			updateButtonLights(&e)
+			//updateButtonLights(&e)
 			if stopPressed {
 				publishState(myID, e, stateOutCh)
 				continue
@@ -109,6 +110,11 @@ func Run(
 				}
 			}
 			publishState(myID, e, stateOutCh)
+
+		// -------- Button light update --------
+		case worldState := <-setButtonLight:
+			updateButtonLights(&worldState, myID)
+			
 
 		// -------- Door timeout --------
 		case <-timer.Timeout():
@@ -173,7 +179,7 @@ func Run(
 }
 
 func elevatorInit(e *Elevator) {
-	updateButtonLights(e)
+	//updateButtonLights(e)
 	setMotor(elevio.MD_Down)
 	for {
 		if elevio.GetFloor() >= 0 {
@@ -269,11 +275,11 @@ func chooseDirection(e *Elevator) (config.TravelDirection, Behavior, elevio.Moto
 	return e.TravelDir, EB_Idle, elevio.MD_Stop
 }
 
-func updateButtonLights(e *Elevator) {
-	for floor := 0; floor < len(e.Orders.Cab); floor++ {
-		elevio.SetButtonLamp(config.BT_Cab, floor, e.Orders.Cab[floor])
-		elevio.SetButtonLamp(config.BT_HallUp, floor, e.Orders.Hall[floor][config.BT_HallUp])
-		elevio.SetButtonLamp(config.BT_HallDown, floor, e.Orders.Hall[floor][config.BT_HallDown])
+func updateButtonLights(ws *om.WorldState, myID string) {
+	for floor := 0; floor < len(ws.ConfirmedCabOrders); floor++ {
+		elevio.SetButtonLamp(config.BT_Cab, floor, ws.ConfirmedCabOrders[myID][floor])
+		elevio.SetButtonLamp(config.BT_HallUp, floor, ws.ConfirmedHallOrders[floor][config.BT_HallUp])
+		elevio.SetButtonLamp(config.BT_HallDown, floor, ws.ConfirmedHallOrders[floor][config.BT_HallDown])
 	}
 }
 
