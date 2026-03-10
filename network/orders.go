@@ -33,7 +33,7 @@ func RunOrderReceive(
 		if msg.SenderID == "" || msg.SenderID == myID {
 			continue
 		}
-		last, known := lastCounter[msg.OwnerID]
+		last, known := lastCounter[msg.SenderID]
 		if known && !supervisor.IsNewer(msg.Counter, last){
 			continue //Filtrer bort gammel og duplikat
 		}

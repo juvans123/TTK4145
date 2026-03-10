@@ -233,6 +233,7 @@ mainLoop:
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
+				orderCounter++
 				select{
 				case OrderOutCh <- OrderMsg{
 					SenderID: myID,
@@ -241,7 +242,7 @@ mainLoop:
 					Button:  key.Button,
 					Phase:   info.Phase,
 					SeenBy:  copySeenBy(info.SeenBy),
-					Counter: peerOrder.Counter,
+					Counter: orderCounter,
 				}:
 				default:
 				}
