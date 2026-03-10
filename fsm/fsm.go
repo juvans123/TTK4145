@@ -144,6 +144,13 @@ func Run(
 				continue
 			}
 
+			// Hold doren apen og retry clear sa lenge ordre fortsatt finnes pa etasjen.
+		/* 	if e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+				timer.Reset(doorOpenDuration)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				continue
+			} */
+
 			closeDoorAndResetLamp(timer)
 
 			travelDir, behavior, dir := chooseDirection(&e)
@@ -300,7 +307,6 @@ func updateButtonLights(ls config.LightState) {
 		elevio.SetButtonLamp(config.BT_Cab, floor, ls.Cab[floor])
 	}
 }
-
 
 func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
 	ce := config.ClearEvent{

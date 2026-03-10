@@ -129,7 +129,23 @@ mainLoop:
 						Phase:  NoOrder,
 						SeenBy: make(map[string]bool),
 					}
-				}
+					//må delete noe???
+				} /* else {
+					now := time.Now()
+					if forceBroadcast || now.Sub(lastServedRetry[key]) >= servedRetryMinInterval {
+						OrderTxCh <- OrderMsg{
+							OwnerID: ownerID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
+						}
+						lastServedRetry[key] = now
+					}
+
+					// Hold FSM på oppdatert "ikke-clearet ennå" snapshot
+					ordersOutCh <- buildMyLocalOrders(&ws, myID)
+				} */
 			}
 
 		case st := <-localStateCh:
