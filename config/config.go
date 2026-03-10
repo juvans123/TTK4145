@@ -88,3 +88,18 @@ func DefaultSupervisorConfig() SupervisorConfig {
         HeartbeatPort: 15647,
 	}
 }
+
+type NetworkConfig struct {
+    StatePort int 
+    HallOrderPort int
+    HeartbeatPort int
+}
+
+
+func DefaultNetworkConfig() NetworkConfig {
+    return NetworkConfig{
+        StatePort:     16570,
+        HallOrderPort: 16571,
+        HeartbeatPort: 15647,
+    }
+}
