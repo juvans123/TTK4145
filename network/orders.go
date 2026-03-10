@@ -6,6 +6,7 @@ package network
 
 import (
 	om "heis/ordermanagement"
+	"heis/supervisor"
 )
 
 
@@ -26,7 +27,17 @@ func RunOrderReceive(
 	netRx <-chan om.OrderMsg,
 	out chan<- om.OrderMsg,
 ) {
+	lastCounter := make(map[string]uint8)
+
 	for msg := range netRx {
+		if msg.OwnerID == "" || msg.OwnerID == myID {
+			continue
+		}
+		last, known := lastCounter[msg.OwnerID]
+		if known && !supervisor.IsNewer(msg.Counter, last){
+			continue //Filtrer bort gammel og duplikat
+		}
+		lastCounter[msg.OwnerID] = msg.Counter
 		select{
 		case out <- msg:
 		default: 

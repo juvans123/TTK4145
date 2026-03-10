@@ -51,6 +51,7 @@ const (
 
 type ElevatorState struct {
     ID          string
+    Counter uint8
     Behaviour   Behaviour `json:"behaviour"`
     Floor       int       `json:"floor"`
     Direction   Direction `json:"direction"`

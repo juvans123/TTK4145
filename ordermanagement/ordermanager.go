@@ -13,12 +13,13 @@ func Run(
 	peerStateCh <-chan config.ElevatorState,
 	peerEventCh <-chan config.PeerEvent,
 	ordersOutCh chan<- Orders,
-	OrderTxCh chan<- OrderMsg,
-	OrderRxCh <-chan OrderMsg,
+	OrderOutCh chan<- OrderMsg, //OM -> Network Denne het TX
+	OrderInCh <-chan OrderMsg, // OM <- Network Denne het RX
 	setButtonLight chan<- config.LightState,
 ) {
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
+	var orderCounter uint8 //Cyclic counter for utgående OrderMsg
 
 	ws.Alive[myID] = true
 	ws.States[myID] = config.ElevatorState{
@@ -64,23 +65,17 @@ mainLoop:
 			localOrderView[key] = info
 
 			//FIX 
+			orderCounter++
 			select {
-			case OrderTxCh <- OrderMsg{
+			case OrderOutCh <- OrderMsg{
 				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
 				Phase:   Unconfirmed,
 				SeenBy:  copySeenBy(info.SeenBy),
+				Counter: orderCounter,
 			}:
 			default:
-			}
-
-			OrderTxCh <- OrderMsg{
-				OwnerID: ownerID,
-				Floor:   btn.Floor,
-				Button:  btn.Button,
-				Phase:   Unconfirmed,
-				SeenBy:  copySeenBy(info.SeenBy),
 			}
 
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
@@ -124,16 +119,18 @@ mainLoop:
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
+				orderCounter++
 				select {
-					case OrderTxCh <- OrderMsg{
+					case OrderOutCh <- OrderMsg{
 					OwnerID: ownerID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
 					Phase:   Served,
 					SeenBy:  copySeenBy(info.SeenBy),
+					Counter: orderCounter,
 
 					}:
-					default: fmt.Printf("[OM %s] OrderTxCh full, dropper Served melding floor=%d\n", myID, cl.Floor)
+					default: fmt.Printf("[OM %s] OrderOutCh full, dropper Served melding floor=%d\n", myID, cl.Floor)
 				}
 
 				// Hvis jeg er eneste alive, kan clear bekreftes med en gang
@@ -165,13 +162,15 @@ mainLoop:
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
 							// FIX non-blocking send
+							orderCounter++
 							select {
-							case OrderTxCh <- OrderMsg{
+							case OrderOutCh <- OrderMsg{
 								OwnerID: key.OwnerID,
 								Floor:   key.Floor,
 								Button:  key.Button,
 								Phase:   info.Phase,
 								SeenBy:  copySeenBy(info.SeenBy),
+								Counter: orderCounter,
 							}:
 							default:
 
@@ -181,7 +180,7 @@ mainLoop:
 				}
 			}
 
-		case peerOrder := <-OrderRxCh:
+		case peerOrder := <-OrderInCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 
 			info := localOrderView[key]
@@ -231,12 +230,13 @@ mainLoop:
 
 			if shouldRebroadcast {
 				select{
-				case OrderTxCh <- OrderMsg{
+				case OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
 					Phase:   info.Phase,
 					SeenBy:  copySeenBy(info.SeenBy),
+					Counter: peerOrder.Counter,
 				}:
 				default:
 				}
