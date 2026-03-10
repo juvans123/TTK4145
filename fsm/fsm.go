@@ -80,7 +80,9 @@ func Run(
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
 				timer.Reset(doorOpenDuration)
 				fmt.Printf("reset dør")
-				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+				clearCh <- ce
 				continue
 			}
 
@@ -88,7 +90,11 @@ func Run(
 			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
-				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				//clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+
+				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+				clearCh <- ce
 				publishIfChanged()
 				continue
 			}
@@ -117,6 +123,7 @@ func Run(
 						e.Behavior = EB_DoorOpen
 						openDoorAndSetLamp(timer)
 						ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+						fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
 						clearCh <- ce
 					} /* else {
 						// Boundary stop without an order at this floor: choose a new valid direction.
@@ -145,11 +152,11 @@ func Run(
 			}
 
 			// Hold doren apen og retry clear sa lenge ordre fortsatt finnes pa etasjen.
-		/* 	if e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+		 	if e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
 				timer.Reset(doorOpenDuration)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
-			} */
+			} 
 
 			closeDoorAndResetLamp(timer)
 
@@ -311,34 +318,30 @@ func updateButtonLights(ls config.LightState) {
 func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
 	ce := config.ClearEvent{
 		Floor:         floor,
-		ClearCab:      true, //alltid clear cab på etasje
+		ClearCab:      false,
 		ClearHallUp:   false,
 		ClearHallDown: false,
 	}
-	hallUp := orders.Hall[floor][config.BT_HallUp]
-	hallDown := orders.Hall[floor][config.BT_HallDown]
 
-	switch dir {
-	case config.TD_Up:
-		if hallUp {
-			ce.ClearHallUp = true
-		}
-		if hallDown && !om.OrdersAbove(orders, floor) {
-			ce.ClearHallDown = true
-		}
-
-	case config.TD_Down:
-		if hallDown {
-			ce.ClearHallDown = true
-		}
-		if hallUp && !om.OrdersBelow(orders, floor) {
-			ce.ClearHallUp = true
-		}
-
-		/* default:
-		ce.ClearHallUp = hallUp
-		ce.ClearHallDown = hallDown */
+	if floor < 0 || floor >= len(orders.Cab) {
+		return ce
 	}
 
+	ce.ClearCab = orders.Cab[floor]
+	ce.ClearHallUp = orders.Hall[floor][config.BT_HallUp]
+	ce.ClearHallDown = orders.Hall[floor][config.BT_HallDown]
+
 	return ce
+}
+
+
+func ordersAtFloorSnapshot(o *om.Orders, floor int) string {
+	if floor < 0 {
+		return "invalid floor"
+	}
+	return fmt.Sprintf("cab=%v hallUp=%v hallDown=%v",
+		o.Cab[floor],
+		o.Hall[floor][config.BT_HallUp],
+		o.Hall[floor][config.BT_HallDown],
+	)
 }

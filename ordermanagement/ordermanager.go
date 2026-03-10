@@ -74,13 +74,20 @@ mainLoop:
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
 			fmt.Printf("Her er jeg:  %s", myID)
 			if allAliveHaveSeen(info.SeenBy, ws.Alive) {
-				fmt.Printf("Id %s is the only one alive", myID)
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
 				info.Phase = Confirmed
-				info.SeenBy = make(map[string]bool)
+				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
+
+				OrderTxCh <- OrderMsg{
+					OwnerID: key.OwnerID,
+					Floor:   btn.Floor,
+					Button:  btn.Button,
+					Phase:   Confirmed,
+					SeenBy:  copySeenBy(info.SeenBy),
+				}
 			}
 
 		case cl := <-clearCh:
@@ -102,37 +109,35 @@ mainLoop:
 				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
 
 				info := localOrderView[key]
+				fmt.Printf("[OM %s] clearCh received: floor=%d button=%v owner=%s phase=%v\n", myID, cl.Floor, clearInfo.button, ownerID, info.Phase)
 
 				// Start bare clear hvis ordren faktisk er confirmed lokalt
-				if info.Phase != Confirmed {
-					continue
-				}
+				if info.Phase == Confirmed{
+					fmt.Printf("[OM %s] START SERVED key=%+v\n", myID, key)
+					info.Phase = Served
+					info.SeenBy = map[string]bool{myID: true}
+					localOrderView[key] = info
 
-				info.Phase = Served
-				info.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = info
-
-				OrderTxCh <- OrderMsg{
-					OwnerID: ownerID,
-					Floor:   cl.Floor,
-					Button:  clearInfo.button,
-					Phase:   Served,
-					SeenBy:  copySeenBy(info.SeenBy),
-				}
-
-				// Hvis jeg er eneste alive, kan clear bekreftes med en gang
-				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
-					if clearOrderInWorldState(&ws, key) {
-						changed = true
+					OrderTxCh <- OrderMsg{
+						OwnerID: ownerID,
+						Floor:   cl.Floor,
+						Button:  clearInfo.button,
+						Phase:   Served,
+						SeenBy:  copySeenBy(info.SeenBy),
 					}
-					localOrderView[key] = OrderInfo{
-						Phase:  NoOrder,
-						SeenBy: make(map[string]bool),
-					}
-					//må delete noe???
-				} /* else {
-					now := time.Now()
-					if forceBroadcast || now.Sub(lastServedRetry[key]) >= servedRetryMinInterval {
+
+					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+						if clearOrderInWorldState(&ws, key) {
+							fmt.Printf("[OM %s] START SERVED key=%+v\n", myID, key)
+							changed = true
+						}
+						localOrderView[key] = OrderInfo{
+							Phase:  NoOrder,
+							SeenBy: make(map[string]bool),
+						}
+					
+					}else{
 						OrderTxCh <- OrderMsg{
 							OwnerID: ownerID,
 							Floor:   cl.Floor,
@@ -140,12 +145,28 @@ mainLoop:
 							Phase:   Served,
 							SeenBy:  copySeenBy(info.SeenBy),
 						}
-						lastServedRetry[key] = now
-					}
-
-					// Hold FSM på oppdatert "ikke-clearet ennå" snapshot
-					ordersOutCh <- buildMyLocalOrders(&ws, myID)
-				} */
+					} 
+					
+				}else if info.Phase == Served{
+					fmt.Printf("[OM %s] SERVED waiting: key=%+v seenBy=%+v alive=%+v\n",myID, key, info.SeenBy, ws.Alive)
+					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+						if clearOrderInWorldState(&ws, key) {
+							changed = true
+						}
+						localOrderView[key] = OrderInfo{
+							Phase:  NoOrder,
+							SeenBy: make(map[string]bool),
+						}
+					} else{
+						OrderTxCh <- OrderMsg{
+							OwnerID: ownerID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
+						}
+					} 
+				}
 			}
 
 		case st := <-localStateCh:
@@ -178,11 +199,18 @@ mainLoop:
 
 		case peerOrder := <-OrderRxCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
-
+		
+			fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n",myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
 			info := localOrderView[key]
 			if info.SeenBy == nil {
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
+			}
+			// Hvis ordren ikke finnes i world state lenger, er innkommende Confirmed/Served bare gammelt ekko
+			if info.Phase == NoOrder &&
+				!isConfirmedInWorldState(&ws, key) &&
+				(peerOrder.Phase == Confirmed || peerOrder.Phase == Served) {
+				continue mainLoop
 			}
 
 			shouldRebroadcast := false
@@ -193,9 +221,9 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				shouldRebroadcast = true
 			} */
-			if peerOrder.Phase == Served && !isConfirmedInWorldState(&ws, key) {
+			/* if peerOrder.Phase == Served && !isConfirmedInWorldState(&ws, key) {
 				continue mainLoop
-			}
+			} */
 
 			if peerOrder.Phase > info.Phase {
 				// Peer har en nyere fase enn meg -> oppgrader
@@ -225,6 +253,7 @@ mainLoop:
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
+				fmt.Printf("[OM %s] REBROADCAST key=%+v phase=%v seenBy=%+v\n",myID, key, info.Phase, info.SeenBy)
 				OrderTxCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
@@ -244,9 +273,16 @@ mainLoop:
 					changed = true
 				}
 				info.Phase = Confirmed
-				info.SeenBy = make(map[string]bool)
+				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
-				//fmt.Printf("[OM %s] CONFIRMED %+v\n", myID, key)
+
+				OrderTxCh <- OrderMsg{
+					OwnerID: key.OwnerID,
+					Floor:   key.Floor,
+					Button:  key.Button,
+					Phase:   Confirmed,
+					SeenBy:  copySeenBy(info.SeenBy),
+				}
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
@@ -264,6 +300,7 @@ mainLoop:
 			setButtonLight <- buildLightState(&ws, myID)
 			orders := buildMyLocalOrders(&ws, myID)
 			//fmt.Printf("[OM %s] sender ny order til FSM: %+v\n", myID, orders)
+			fmt.Printf("[OM %s] ordersOut cab=%v hall=%v\n", myID, orders.Cab, orders.Hall)
 			ordersOutCh <- orders
 		}
 	}
