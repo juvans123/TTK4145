@@ -37,6 +37,7 @@ func Run(
 
 	obstructed := false
 	stopPressed := false
+
 	elevatorInit(&e)
 
 	lastPublished := PublicStateFromFSM(e, myID)
@@ -69,22 +70,29 @@ func Run(
 		case newOrders := <-omOrdersCh:
 			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
+			prev := [3]bool{}
+			if e.Floor >= 0 {
+				prev = ordersAtFloorSnapshot(&e.Orders, e.Floor)
+			}
+		
 			e.Orders = newOrders
-			//updateButtonLights(&e)
+		
+			now := [3]bool{}
+			if e.Floor >= 0 {
+				now = ordersAtFloorSnapshot(&e.Orders, e.Floor)
+			}
+		
 			if stopPressed {
 				publishIfChanged()
 				continue
 			}
-
-			// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
-			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
+		
+			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && hasNewOrderAtFloor(prev, now) {
 				timer.Reset(doorOpenDuration)
-				fmt.Printf("reset dør")
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
 			}
-
-			// Hvis idle i etasje og har ordre her: åpne
+		
 			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
@@ -92,7 +100,7 @@ func Run(
 				publishIfChanged()
 				continue
 			}
-
+		
 			if e.Behavior == EB_Idle {
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
@@ -335,4 +343,21 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 	}
 
 	return ce
+}
+
+func ordersAtFloorSnapshot(o *om.Orders, floor int) [3]bool {
+	return [3]bool{
+		o.Cab[floor],                  // cab
+		o.Hall[floor][config.BT_HallUp],   // hall up
+		o.Hall[floor][config.BT_HallDown], // hall down
+	}
+}
+
+func hasNewOrderAtFloor(prev, now [3]bool) bool {
+	for i := 0; i < 3; i++ {
+		if !prev[i] && now[i] {
+			return true
+		}
+	}
+	return false
 }

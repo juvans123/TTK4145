@@ -74,13 +74,20 @@ mainLoop:
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
 			fmt.Printf("Her er jeg:  %s", myID)
 			if allAliveHaveSeen(info.SeenBy, ws.Alive) {
-				fmt.Printf("Id %s is the only one alive", myID)
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
 				info.Phase = Confirmed
-				info.SeenBy = make(map[string]bool)
+				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
+			
+				OrderTxCh <- OrderMsg{
+					OwnerID: key.OwnerID,
+					Floor:   btn.Floor,
+					Button:  btn.Button,
+					Phase:   Confirmed,
+					SeenBy:  copySeenBy(info.SeenBy),
+				}
 			}
 
 		case cl := <-clearCh:
@@ -141,7 +148,7 @@ mainLoop:
 		case pe := <-peerEventCh:
 			prev, exists := ws.Alive[pe.PeerID]
 			if !exists || prev != pe.Alive {
-				ws.Alive[pe.PeerID] = pe.Alive
+		/* 		ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 				
 				// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
@@ -155,6 +162,50 @@ mainLoop:
 								Phase:   info.Phase,
 								SeenBy:  copySeenBy(info.SeenBy),
 							}
+						}
+					}
+				} */
+
+				ws.Alive[pe.PeerID] = pe.Alive
+				changed = true
+
+				// Re-evaluer alle ordre som venter på at "alle alive" skal ha sett dem
+				for key, info := range localOrderView {
+					if info.SeenBy == nil {
+						continue
+					}
+		
+					if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
+						continue
+					}
+		
+					switch info.Phase {
+					case Unconfirmed:
+						if confirmOrderInWorldState(&ws, key) {
+							changed = true
+						}
+		
+						// Start ny seenBy-runde for Confirmed
+						info.Phase = Confirmed
+						info.SeenBy = map[string]bool{myID: true}
+						localOrderView[key] = info
+		
+						OrderTxCh <- OrderMsg{
+							OwnerID: key.OwnerID,
+							Floor:   key.Floor,
+							Button:  key.Button,
+							Phase:   info.Phase,
+							SeenBy:  copySeenBy(info.SeenBy),
+						}
+		
+					case Served:
+						if clearOrderInWorldState(&ws, key) {
+							changed = true
+						}
+		
+						localOrderView[key] = OrderInfo{
+							Phase:  NoOrder,
+							SeenBy: make(map[string]bool),
 						}
 					}
 				}
@@ -177,10 +228,10 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				shouldRebroadcast = true
 			} */
-			if peerOrder.Phase == Served && !isConfirmedInWorldState(&ws, key) {
+			/* if peerOrder.Phase == Served && !isConfirmedInWorldState(&ws, key) {
 				continue mainLoop
 			}
-
+ */
 			if peerOrder.Phase > info.Phase {
 				// Peer har en nyere fase enn meg -> oppgrader
 				info.Phase = peerOrder.Phase
@@ -228,9 +279,17 @@ mainLoop:
 					changed = true
 				}
 				info.Phase = Confirmed
-				info.SeenBy = make(map[string]bool)
+				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 				//fmt.Printf("[OM %s] CONFIRMED %+v\n", myID, key)
+				OrderTxCh <- OrderMsg{
+					OwnerID: key.OwnerID,
+					Floor:   key.Floor,
+					Button:  key.Button,
+					Phase:   info.Phase,
+					SeenBy:  copySeenBy(info.SeenBy),
+				}
+		
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
@@ -293,10 +352,7 @@ func isConfirmedInWorldState(ws *WorldState, key OrderKey) bool {
 
 func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
 	for id, isAlive := range alive {
-		if !isAlive {
-			continue
-		}
-		if !seenBy[id] {
+		if isAlive && !seenBy[id] {
 			return false
 		}
 	}
