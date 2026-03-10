@@ -30,14 +30,14 @@ func RunOrderReceive(
 	lastCounter := make(map[string]uint8)
 
 	for msg := range netRx {
-		if msg.OwnerID == "" || msg.OwnerID == myID {
+		if msg.SenderID == "" || msg.SenderID == myID {
 			continue
 		}
 		last, known := lastCounter[msg.OwnerID]
 		if known && !supervisor.IsNewer(msg.Counter, last){
 			continue //Filtrer bort gammel og duplikat
 		}
-		lastCounter[msg.OwnerID] = msg.Counter
+		lastCounter[msg.SenderID] = msg.Counter
 		select{
 		case out <- msg:
 		default: 

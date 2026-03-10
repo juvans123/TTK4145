@@ -68,6 +68,7 @@ mainLoop:
 			orderCounter++
 			select {
 			case OrderOutCh <- OrderMsg{
+				SenderID: myID,
 				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
@@ -122,6 +123,7 @@ mainLoop:
 				orderCounter++
 				select {
 					case OrderOutCh <- OrderMsg{
+					SenderID: myID,
 					OwnerID: ownerID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
@@ -165,6 +167,7 @@ mainLoop:
 							orderCounter++
 							select {
 							case OrderOutCh <- OrderMsg{
+								SenderID: myID,
 								OwnerID: key.OwnerID,
 								Floor:   key.Floor,
 								Button:  key.Button,
@@ -231,6 +234,7 @@ mainLoop:
 			if shouldRebroadcast {
 				select{
 				case OrderOutCh <- OrderMsg{
+					SenderID: myID,
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
@@ -283,7 +287,7 @@ func ownerForButton(myID string, button config.ButtonType) string {
 	if button == config.BT_Cab {
 		return myID
 	}
-	return ""
+	return "hall"
 }
 
 func makeOrderKey(ownerID string, floor int, button config.ButtonType) OrderKey {

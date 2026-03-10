@@ -19,6 +19,7 @@ const (
 )
 
 type OrderMsg struct {
+    SenderID string
     OwnerID string
     Floor int
     Button config.ButtonType
