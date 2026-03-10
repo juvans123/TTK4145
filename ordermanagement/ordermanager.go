@@ -142,10 +142,11 @@ mainLoop:
 			prev, exists := ws.Alive[pe.PeerID]
 			if !exists || prev != pe.Alive {
 				ws.Alive[pe.PeerID] = pe.Alive
+				reevaluateTrackerAfterAliveChange(&ws, localOrderView) 
 				changed = true
 				
 				// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
-				if !pe.Alive {
+			/* 	if !pe.Alive {
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
 							OrderTxCh <- OrderMsg{
@@ -157,7 +158,7 @@ mainLoop:
 							}
 						}
 					}
-				}
+				} */
 			}
 
 		case peerOrder := <-OrderRxCh:
@@ -496,6 +497,32 @@ func buildLightState(ws *WorldState, myID string) config.LightState {
 	}
 
 	return ls
+}
+
+func reevaluateTrackerAfterAliveChange(ws *WorldState, localOrderView OrderTracker) {
+
+	for key, info := range localOrderView {
+		if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
+			continue
+		}
+
+		switch info.Phase {
+		case Unconfirmed:
+			if confirmOrderInWorldState(ws, key) {
+			}
+			info.Phase = Confirmed
+			info.SeenBy = make(map[string]bool)
+			localOrderView[key] = info
+
+		case Served:
+			if clearOrderInWorldState(ws, key) {
+			}
+			localOrderView[key] = OrderInfo{
+				Phase:  NoOrder,
+				SeenBy: make(map[string]bool),
+			}
+		}
+	}
 }
 
 /* func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
