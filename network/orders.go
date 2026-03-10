@@ -23,13 +23,10 @@ func RunOrderBroadcast(
 
 func RunOrderReceive(
 	myID string, 
-	netRx <- chan om.OrderMsg,
-	out chan <- om.OrderMsg,
+	netRx <-chan om.OrderMsg,
+	out chan<- om.OrderMsg,
 ) {
 	for msg := range netRx {
-		if msg.OwnerID == myID {
-			continue
-		}
 		select{
 		case out <- msg:
 		default: 

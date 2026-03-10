@@ -63,6 +63,18 @@ mainLoop:
 			info.SeenBy = map[string]bool{myID: true}
 			localOrderView[key] = info
 
+			//FIX 
+			select {
+			case OrderTxCh <- OrderMsg{
+				OwnerID: ownerID,
+				Floor:   btn.Floor,
+				Button:  btn.Button,
+				Phase:   Unconfirmed,
+				SeenBy:  copySeenBy(info.SeenBy),
+			}:
+			default:
+			}
+
 			OrderTxCh <- OrderMsg{
 				OwnerID: ownerID,
 				Floor:   btn.Floor,
@@ -112,12 +124,16 @@ mainLoop:
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
-				OrderTxCh <- OrderMsg{
+				select {
+					case OrderTxCh <- OrderMsg{
 					OwnerID: ownerID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
 					Phase:   Served,
 					SeenBy:  copySeenBy(info.SeenBy),
+
+					}:
+					default: fmt.Printf("[OM %s] OrderTxCh full, dropper Served melding floor=%d\n", myID, cl.Floor)
 				}
 
 				// Hvis jeg er eneste alive, kan clear bekreftes med en gang
@@ -148,12 +164,17 @@ mainLoop:
 				if !pe.Alive {
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
-							OrderTxCh <- OrderMsg{
+							// FIX non-blocking send
+							select {
+							case OrderTxCh <- OrderMsg{
 								OwnerID: key.OwnerID,
 								Floor:   key.Floor,
 								Button:  key.Button,
 								Phase:   info.Phase,
 								SeenBy:  copySeenBy(info.SeenBy),
+							}:
+							default:
+
 							}
 						}
 					}
@@ -209,12 +230,15 @@ mainLoop:
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
-				OrderTxCh <- OrderMsg{
+				select{
+				case OrderTxCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
 					Phase:   info.Phase,
 					SeenBy:  copySeenBy(info.SeenBy),
+				}:
+				default:
 				}
 			}
 
