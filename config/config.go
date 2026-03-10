@@ -77,7 +77,6 @@ type SupervisorConfig struct {
 	TickInterval time.Duration
     SuspectThreshold int
 	ConsensusRequired int
-    HeartbeatPort int
 }
 
 func DefaultSupervisorConfig() SupervisorConfig {
@@ -85,7 +84,6 @@ func DefaultSupervisorConfig() SupervisorConfig {
 		TickInterval:     3 * time.Second,
 		SuspectThreshold: 5,
 		ConsensusRequired: 2,
-        HeartbeatPort: 15647,
 	}
 }
 

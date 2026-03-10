@@ -10,8 +10,8 @@ import (
 )
 
 func RunHeartbeatBroadcast(
-	in <- chan supervisor.Heartbeat,
-	netTX chan <- supervisor.Heartbeat, 
+	in <-chan supervisor.Heartbeat,
+	netTX chan<- supervisor.Heartbeat, 
 ) {
 	for hb := range in {
 		select {
@@ -22,12 +22,12 @@ func RunHeartbeatBroadcast(
 }
 
 func RunHeartbeatReceive(
-	MyID string, 
-	netRx <- chan supervisor.Heartbeat, 
-	out chan <- supervisor.Heartbeat, 
+	myID string, 
+	netRx <-chan supervisor.Heartbeat, 
+	out chan<- supervisor.Heartbeat, 
 ) {
 	for hb := range netRx {
-		if hb.PeerID == MyID {
+		if hb.PeerID == myID {
 			continue
 		}
 		select{
