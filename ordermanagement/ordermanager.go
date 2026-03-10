@@ -43,10 +43,8 @@ func Run(
 		}
 	}
 
-	select {
-	case ordersOutCh <- buildMyLocalOrders(&ws, myID):
-	default:
-	}
+	ordersOutCh <- buildMyLocalOrders(&ws, myID)
+	
 
 mainLoop:
 	for {

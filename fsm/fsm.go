@@ -80,11 +80,7 @@ func Run(
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
 				timer.Reset(doorOpenDuration)
 				fmt.Printf("reset dør")
-				select{
-				case clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir):
-				default:
-					fmt.Printf("[FSM] clearCh full, dropper clear floor=%d\n", e.Floor)
-				}
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
 			}
 
@@ -92,11 +88,7 @@ func Run(
 			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
-				select {
-				case clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir):
-				default:
-					    fmt.Printf("[FSM] clearCh full, dropper clear floor=%d\n", e.Floor)
-				}
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				publishIfChanged()
 				continue
 			}
@@ -125,11 +117,8 @@ func Run(
 						e.Behavior = EB_DoorOpen
 						openDoorAndSetLamp(timer)
 						ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-						select {
-						case clearCh <- ce: 
-						default:
-							fmt.Printf("[FSM] clearCh full, dropper clear floor=%d\n", e.Floor)
-						}
+						clearCh <- ce
+						
 					} /* else {
 						// Boundary stop without an order at this floor: choose a new valid direction.
 						dir, beh := chooseDirection(&e)
