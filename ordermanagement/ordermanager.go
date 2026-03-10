@@ -112,7 +112,7 @@ mainLoop:
 				fmt.Printf("[OM %s] clearCh received: floor=%d button=%v owner=%s phase=%v\n", myID, cl.Floor, clearInfo.button, ownerID, info.Phase)
 
 				// Start bare clear hvis ordren faktisk er confirmed lokalt
-				if info.Phase == Confirmed{
+				if info.Phase == Confirmed {
 					fmt.Printf("[OM %s] START SERVED key=%+v\n", myID, key)
 					info.Phase = Served
 					info.SeenBy = map[string]bool{myID: true}
@@ -136,8 +136,8 @@ mainLoop:
 							Phase:  NoOrder,
 							SeenBy: make(map[string]bool),
 						}
-					
-					}else{
+
+					} else {
 						OrderTxCh <- OrderMsg{
 							OwnerID: ownerID,
 							Floor:   cl.Floor,
@@ -145,10 +145,10 @@ mainLoop:
 							Phase:   Served,
 							SeenBy:  copySeenBy(info.SeenBy),
 						}
-					} 
-					
-				}else if info.Phase == Served{
-					fmt.Printf("[OM %s] SERVED waiting: key=%+v seenBy=%+v alive=%+v\n",myID, key, info.SeenBy, ws.Alive)
+					}
+
+				} else if info.Phase == Served {
+					fmt.Printf("[OM %s] SERVED waiting: key=%+v seenBy=%+v alive=%+v\n", myID, key, info.SeenBy, ws.Alive)
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
@@ -157,7 +157,7 @@ mainLoop:
 							Phase:  NoOrder,
 							SeenBy: make(map[string]bool),
 						}
-					} else{
+					} else {
 						OrderTxCh <- OrderMsg{
 							OwnerID: ownerID,
 							Floor:   cl.Floor,
@@ -165,7 +165,7 @@ mainLoop:
 							Phase:   Served,
 							SeenBy:  copySeenBy(info.SeenBy),
 						}
-					} 
+					}
 				}
 			}
 
@@ -178,11 +178,27 @@ mainLoop:
 		case pe := <-peerEventCh:
 			prev, exists := ws.Alive[pe.PeerID]
 			if !exists || prev != pe.Alive {
+				wasDead := exists && !prev
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
-				
-				// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
-				if !pe.Alive {
+
+				// Hvis en heis blir live igjen, send alle dens confirmed cabin orders
+				if pe.Alive && wasDead {
+					if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
+						for floor, isConfirmed := range confirmedCabs {
+							if isConfirmed {
+								OrderTxCh <- OrderMsg{
+									OwnerID: pe.PeerID,
+									Floor:   floor,
+									Button:  config.BT_Cab,
+									Phase:   Confirmed,
+									SeenBy:  map[string]bool{myID: true},
+								}
+							}
+						}
+					}
+				} else if !pe.Alive {
+					// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
 							OrderTxCh <- OrderMsg{
@@ -199,17 +215,17 @@ mainLoop:
 
 		case peerOrder := <-OrderRxCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
-		
-			fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n",myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
+
+			fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n", myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
 			info := localOrderView[key]
 			if info.SeenBy == nil {
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
 			}
-			// Hvis ordren ikke finnes i world state lenger, er innkommende Confirmed/Served bare gammelt ekko
+
 			if info.Phase == NoOrder &&
 				!isConfirmedInWorldState(&ws, key) &&
-				(peerOrder.Phase == Confirmed || peerOrder.Phase == Served) {
+				peerOrder.Phase == Served {
 				continue mainLoop
 			}
 
@@ -253,7 +269,7 @@ mainLoop:
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
-				fmt.Printf("[OM %s] REBROADCAST key=%+v phase=%v seenBy=%+v\n",myID, key, info.Phase, info.SeenBy)
+				fmt.Printf("[OM %s] REBROADCAST key=%+v phase=%v seenBy=%+v\n", myID, key, info.Phase, info.SeenBy)
 				OrderTxCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
@@ -283,6 +299,13 @@ mainLoop:
 					Phase:   Confirmed,
 					SeenBy:  copySeenBy(info.SeenBy),
 				}
+
+			//Hvis en heis har våknet til live og får tilsendt confirmed ordere
+			case Confirmed:
+				if confirmOrderInWorldState(&ws, key) {
+					changed = true
+				}
+				localOrderView[key] = info
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
