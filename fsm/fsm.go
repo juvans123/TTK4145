@@ -151,13 +151,13 @@ func Run(
 				timer.Reset(doorOpenDuration)
 				continue
 			}
-/* 
-			// Hold doren apen og retry clear sa lenge ordre fortsatt finnes pa etasjen.
-		 	if e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+
+			// Hold doren apen kun hvis det finnes ordre pa etasjen som faktisk skal tas i valgt retning.
+			if shouldTakeOrdersAtFloor(&e) {
 				timer.Reset(doorOpenDuration)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
-			}  */
+			}
 
 			closeDoorAndResetLamp(timer)
 
@@ -354,14 +354,21 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 			ce.ClearHallUp = true
 		}
 
-		default:
+	default:
 		ce.ClearHallUp = hallUp
-		ce.ClearHallDown = hallDown 
+		ce.ClearHallDown = hallDown
 	}
 
 	return ce
 }
 
+func shouldTakeOrdersAtFloor(e *Elevator) bool {
+	if e.Floor < 0 || e.Floor >= len(e.Orders.Cab) {
+		return false
+	}
+	ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+	return ce.ClearCab || ce.ClearHallUp || ce.ClearHallDown
+}
 
 /* func ordersAtFloorSnapshot(o *om.Orders, floor int) string {
 	if floor < 0 {
