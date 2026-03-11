@@ -51,6 +51,7 @@ const (
 
 type ElevatorState struct {
     ID          string
+    Counter uint8
     Behaviour   Behaviour `json:"behaviour"`
     Floor       int       `json:"floor"`
     Direction   Direction `json:"direction"`
@@ -77,7 +78,6 @@ type SupervisorConfig struct {
 	TickInterval time.Duration
     SuspectThreshold int
 	ConsensusRequired int
-    HeartbeatPort int
 }
 
 func DefaultSupervisorConfig() SupervisorConfig {
@@ -85,6 +85,20 @@ func DefaultSupervisorConfig() SupervisorConfig {
 		TickInterval:     3 * time.Second,
 		SuspectThreshold: 5,
 		ConsensusRequired: 2,
-        HeartbeatPort: 15647,
 	}
+}
+
+type NetworkConfig struct {
+    StatePort int 
+    HallOrderPort int
+    HeartbeatPort int
+}
+
+
+func DefaultNetworkConfig() NetworkConfig {
+    return NetworkConfig{
+        StatePort:     16570,
+        HallOrderPort: 16571,
+        HeartbeatPort: 15647,
+    }
 }

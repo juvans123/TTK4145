@@ -20,6 +20,7 @@ func main() {
 	floorsFlag := flag.Int("floors", config.N_FLOORS, "Number of floors")
 	flag.Parse()
 	myID := *idFlag
+	netCfg := config.DefaultNetworkConfig()
 
 	elevio.Init(*addrFlag, *floorsFlag)
 
@@ -53,25 +54,32 @@ func main() {
 	go elevio.PollObstructionSwitch(obstructionCh)
 	go elevio.PollStopButton(stopButtonCh)
 
-	// --- Network: bcast ElevatorState ---
+	// --- Network: ElevatorState ---
 	stateTx := make(chan config.ElevatorState, 16)
 	stateRx := make(chan config.ElevatorState, 64)
 	peerStateCh := make(chan config.ElevatorState, 64)
 
-	const statePort = 16570
-	go network.Transmitter(statePort, stateTx)
-	go network.Receiver(statePort, stateRx)
+	go network.Transmitter(netCfg.StatePort, stateTx)
+	go network.Receiver(netCfg.StatePort, stateRx)
 
 	go network.RunStateBroadcast(myID, netLocalStateCh, stateTx)
 	go network.RunStateReceive(myID, stateRx, peerStateCh)
 
-	// --- Network: bcast HallOrders ---
-	OrderTx := make(chan om.OrderMsg, 16)
-	OrderRx := make(chan om.OrderMsg, 64)
+	// --- Network: HallOrders ---
+	//OrderTx := make(chan om.OrderMsg, 16)
+	//OrderRx := make(chan om.OrderMsg, 64)
 
-	const hallOrderPort = 16571
-	go network.Transmitter(hallOrderPort, OrderTx)
-	go network.Receiver(hallOrderPort, OrderRx)
+	orderInternal := make(chan om.OrderMsg, 16) //OM -> network
+	orderNetTx := make(chan om.OrderMsg, 16) // network -> bcast TX
+	orderNetRx := make(chan om.OrderMsg, 64) // bcast RX -> network
+	orderIncoming := make(chan om.OrderMsg, 64) // network -> OM
+
+
+	go network.Transmitter(netCfg.HallOrderPort, orderNetTx)
+	go network.Receiver(netCfg.HallOrderPort, orderNetRx)
+	go network.RunOrderBroadcast(orderInternal, orderNetTx)
+	go network.RunOrderReceive(orderNetRx, orderIncoming)
+
 
 	// clearPort = 16572
 	//go network.Transmitter(clearPort, clearEventTx)
@@ -80,24 +88,30 @@ func main() {
 	// --- Network: peers alive/dead ---
 	//-----------------
 
+	// Network: Heartbeat
+
+	hbInternal := make(chan supervisor.Heartbeat, 16) // supervisor → network
+	hbNetTx    := make(chan supervisor.Heartbeat, 16) // network → bcast TX
+	hbNetRx    := make(chan supervisor.Heartbeat, 64) // bcast RX → network
+	hbIncoming := make(chan supervisor.Heartbeat, 64) // network → supervisor
+
+	go network.Transmitter(netCfg.HeartbeatPort, hbNetTx)
+	go network.Receiver(netCfg.HeartbeatPort, hbNetRx)
+	go network.RunHeartbeatBroadcast(hbInternal, hbNetTx)
+	go network.RunHeartbeatReceive(myID, hbNetRx, hbIncoming)
+
 	// --- Supervisor: peer health monitoring ---
-	supCfg := config.DefaultSupervisorConfig()
-
-	hbTx := make(chan supervisor.Heartbeat)
-	hbRx := make(chan supervisor.Heartbeat)
-	go network.Transmitter(supCfg.HeartbeatPort, hbTx)
-	go network.Receiver(supCfg.HeartbeatPort, hbRx)
-
+	
 	peerEventCh := make(chan config.PeerEvent, 16) //Ny
 
-	sup := supervisor.New(supervisor.NewConfig(myID), hbTx, hbRx, peerEventCh)
+	sup := supervisor.New(supervisor.NewConfig(myID), hbInternal, hbIncoming, peerEventCh)
 	go func() {
 		sup.MonitorPeerHealth(context.Background())
 	}()
 
 	// Order manager
   
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, OrderTx, OrderRx, buttonLights)
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, orderInternal, orderIncoming, buttonLights)
 
 	// FSM
 	t := timer.NewDoorTimer()

@@ -24,7 +24,6 @@ type OrderMsg struct {
     Button config.ButtonType
     SeenBy map[string]bool
     Phase OrderPhase
-    //Counter int
 }
 
 type OrderKey struct{
@@ -37,7 +36,6 @@ type OrderKey struct{
 type OrderInfo struct{
     SeenBy map[string]bool
     Phase OrderPhase
-    //counter
 }
 
 type OrderTracker map[OrderKey]OrderInfo

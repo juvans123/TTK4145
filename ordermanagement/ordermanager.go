@@ -13,8 +13,8 @@ func Run(
 	peerStateCh <-chan config.ElevatorState,
 	peerEventCh <-chan config.PeerEvent,
 	ordersOutCh chan<- Orders,
-	OrderTxCh chan<- OrderMsg,
-	OrderRxCh <-chan OrderMsg,
+	OrderOutCh chan<- OrderMsg, //OM -> Network Denne het TX
+	OrderInCh <-chan OrderMsg, // OM <- Network Denne het RX
 	setButtonLight chan<- config.LightState,
 ) {
 	ws := NewWorldState()
@@ -63,7 +63,8 @@ mainLoop:
 			info.SeenBy = map[string]bool{myID: true}
 			localOrderView[key] = info
 
-			OrderTxCh <- OrderMsg{
+			//FIX 
+			OrderOutCh <- OrderMsg{
 				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
@@ -112,7 +113,8 @@ mainLoop:
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
-				OrderTxCh <- OrderMsg{
+				
+				OrderOutCh <- OrderMsg{
 					OwnerID: ownerID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
@@ -164,7 +166,7 @@ mainLoop:
 				if !pe.Alive {
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
-							OrderTxCh <- OrderMsg{
+							OrderOutCh <- OrderMsg{
 								OwnerID: key.OwnerID,
 								Floor:   key.Floor,
 								Button:  key.Button,
@@ -176,7 +178,7 @@ mainLoop:
 				}
 			}
 
-		case peerOrder := <-OrderRxCh:
+		case peerOrder := <-OrderInCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 
 			info := localOrderView[key]
@@ -225,7 +227,7 @@ mainLoop:
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
-				OrderTxCh <- OrderMsg{
+				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
