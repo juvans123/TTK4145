@@ -72,7 +72,6 @@ mainLoop:
 			}
 
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
-			fmt.Printf("Her er jeg:  %s", myID)
 			if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
@@ -109,11 +108,10 @@ mainLoop:
 				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
 
 				info := localOrderView[key]
-				fmt.Printf("[OM %s] clearCh received: floor=%d button=%v owner=%s phase=%v\n", myID, cl.Floor, clearInfo.button, ownerID, info.Phase)
+			
 
 				// Start bare clear hvis ordren faktisk er confirmed lokalt
 				if info.Phase == Confirmed {
-					fmt.Printf("[OM %s] START SERVED key=%+v\n", myID, key)
 					info.Phase = Served
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
@@ -129,7 +127,6 @@ mainLoop:
 					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
-							fmt.Printf("[OM %s] START SERVED key=%+v\n", myID, key)
 							changed = true
 						}
 						localOrderView[key] = OrderInfo{
@@ -148,7 +145,6 @@ mainLoop:
 					}
 
 				} else if info.Phase == Served {
-					fmt.Printf("[OM %s] SERVED waiting: key=%+v seenBy=%+v alive=%+v\n", myID, key, info.SeenBy, ws.Alive)
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
@@ -184,6 +180,7 @@ mainLoop:
 
 				// Hvis en heis blir live igjen, send alle dens confirmed cabin orders
 				if pe.Alive && wasDead {
+					
 					if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
 						for floor, isConfirmed := range confirmedCabs {
 							if isConfirmed {
@@ -223,11 +220,11 @@ mainLoop:
 				info.Phase = NoOrder
 			}
 
-			if info.Phase == NoOrder &&
-				!isConfirmedInWorldState(&ws, key) &&
+			if !isConfirmedInWorldState(&ws, key) &&
 				peerOrder.Phase == Served {
 				continue mainLoop
 			}
+
 
 			shouldRebroadcast := false
 
@@ -241,7 +238,7 @@ mainLoop:
 				continue mainLoop
 			} */
 
-			if peerOrder.Phase > info.Phase {
+			if peerOrder.Phase > info.Phase && (peerOrder.Phase == Unconfirmed ||peerOrder.Phase == Served ){
 				// Peer har en nyere fase enn meg -> oppgrader
 				info.Phase = peerOrder.Phase
 				info.SeenBy = make(map[string]bool)
@@ -305,7 +302,7 @@ mainLoop:
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
-				localOrderView[key] = info
+				localOrderView[key] = info 
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
@@ -315,15 +312,13 @@ mainLoop:
 					Phase:  NoOrder,
 					SeenBy: make(map[string]bool),
 				}
-				//fmt.Printf("[OM %s] CLEARED %+v\n", myID, key)
 			}
 		}
 
 		if changed {
 			setButtonLight <- buildLightState(&ws, myID)
 			orders := buildMyLocalOrders(&ws, myID)
-			//fmt.Printf("[OM %s] sender ny order til FSM: %+v\n", myID, orders)
-			fmt.Printf("[OM %s] ordersOut cab=%v hall=%v\n", myID, orders.Cab, orders.Hall)
+			fmt.Printf("changed")
 			ordersOutCh <- orders
 		}
 	}
@@ -440,7 +435,6 @@ func NewOrders(numFloors int) Orders {
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	inputAssigner := buildAssignerInput(ws)
-	//fmt.Printf("InputAssigner %+v\n", inputAssigner)
 	path := "./hall_request_assigner/hall_request_assigner"
 
 	assignments, err := CallAssigner(path, inputAssigner)
@@ -450,9 +444,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	}
 
 	myAssignedHall, ok := assignments[myID]
-	//fmt.Printf("Assigned hall for %s: %+v\n", myID, myAssignedHall)
 	if !ok {
-		fmt.Printf("MyID %s not in assigner output\n", myID)
 		return buildCabOnlyOrders(ws, myID)
 	}
 
@@ -482,7 +474,6 @@ func buildCabOnlyOrders(ws *WorldState, myID string) Orders {
 	}
 
 	if len(confirmedCab) != config.N_FLOORS {
-		fmt.Printf("Warning: ConfirmedCabOrders for %s has wrong length\n", myID)
 		return cabOnlyOrders
 	}
 

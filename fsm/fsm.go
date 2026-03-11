@@ -81,7 +81,7 @@ func Run(
 				timer.Reset(doorOpenDuration)
 				fmt.Printf("reset dør")
 				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-				fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+				// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
 				clearCh <- ce
 				continue
 			}
@@ -93,7 +93,7 @@ func Run(
 				//clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 
 				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-				fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+				// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
 				clearCh <- ce
 				publishIfChanged()
 				continue
@@ -118,12 +118,12 @@ func Run(
 					stopMotor()
 					e.Dir = elevio.MD_Stop
 					e.Behavior = EB_Idle
-					fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
+					// fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
 					if om.HasOrderAtFloor(&e.Orders, e.Floor) {
 						e.Behavior = EB_DoorOpen
 						openDoorAndSetLamp(timer)
 						ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-						fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+						// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
 						clearCh <- ce
 					} /* else {
 						// Boundary stop without an order at this floor: choose a new valid direction.
