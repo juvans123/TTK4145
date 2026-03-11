@@ -261,7 +261,7 @@ mainLoop:
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
 				}
-				continue mainLoop
+				break
 			}
 
 			
