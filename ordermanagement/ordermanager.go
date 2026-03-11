@@ -19,7 +19,6 @@ func Run(
 ) {
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
-	var orderCounter uint8 //Cyclic counter for utgående OrderMsg
 
 	ws.Alive[myID] = true
 	ws.States[myID] = config.ElevatorState{
@@ -65,14 +64,12 @@ mainLoop:
 			localOrderView[key] = info
 
 			//FIX 
-			orderCounter++
 			OrderOutCh <- OrderMsg{
 				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
 				Phase:   Unconfirmed,
 				SeenBy:  copySeenBy(info.SeenBy),
-				Counter: orderCounter,
 			}
 
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
@@ -116,14 +113,13 @@ mainLoop:
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
-				orderCounter++
+				
 				OrderOutCh <- OrderMsg{
 					OwnerID: ownerID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
 					Phase:   Served,
 					SeenBy:  copySeenBy(info.SeenBy),
-					Counter: orderCounter,
 				}
 
 				// Hvis jeg er eneste alive, kan clear bekreftes med en gang
@@ -154,14 +150,12 @@ mainLoop:
 				if !pe.Alive {
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
-							orderCounter++
 							OrderOutCh <- OrderMsg{
 								OwnerID: key.OwnerID,
 								Floor:   key.Floor,
 								Button:  key.Button,
 								Phase:   info.Phase,
 								SeenBy:  copySeenBy(info.SeenBy),
-								Counter: orderCounter,
 							}
 						}
 					}
@@ -223,7 +217,6 @@ mainLoop:
 					Button:  key.Button,
 					Phase:   info.Phase,
 					SeenBy:  copySeenBy(info.SeenBy),
-					Counter: peerOrder.Counter,
 				}
 			}
 

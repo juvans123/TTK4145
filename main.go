@@ -78,7 +78,7 @@ func main() {
 	go network.Transmitter(netCfg.HallOrderPort, orderNetTx)
 	go network.Receiver(netCfg.HallOrderPort, orderNetRx)
 	go network.RunOrderBroadcast(orderInternal, orderNetTx)
-	go network.RunOrderReceive( myID, orderNetRx, orderIncoming)
+	go network.RunOrderReceive(orderNetRx, orderIncoming)
 
 
 	// clearPort = 16572

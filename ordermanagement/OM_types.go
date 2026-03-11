@@ -24,7 +24,6 @@ type OrderMsg struct {
     Button config.ButtonType
     SeenBy map[string]bool
     Phase OrderPhase
-    Counter uint8
 }
 
 type OrderKey struct{
