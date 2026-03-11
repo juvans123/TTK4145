@@ -214,6 +214,29 @@ mainLoop:
 							}
 						}
 					}
+					// NYTT: send alle bekreftede hallorders
+					for floor := 0; floor < config.N_FLOORS; floor++ {
+						if ws.ConfirmedHallOrders[floor][config.BT_HallUp]{
+							OrderTxCh <- OrderMsg{
+								OwnerID: "",
+								Floor: floor,
+								Button: config.BT_HallUp,
+								Phase: Confirmed,
+								SeenBy: map[string]bool{myID: true},
+							}
+						}
+
+						if ws.ConfirmedHallOrders[floor][config.BT_HallDown]{
+							OrderTxCh <- OrderMsg{
+								OwnerID: "",
+								Floor: floor,
+								Button: config.BT_HallDown,
+								Phase: Confirmed,
+								SeenBy: map[string]bool{myID: true},
+							}
+						}
+					}
+
 				} else if !pe.Alive {
 					// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
 					for key, info := range localOrderView {
@@ -261,7 +284,7 @@ mainLoop:
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
 				}
-				continue mainLoop
+				break
 			}
 
 			
