@@ -66,16 +66,13 @@ mainLoop:
 
 			//FIX 
 			orderCounter++
-			select {
-			case OrderOutCh <- OrderMsg{
+			OrderOutCh <- OrderMsg{
 				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
 				Phase:   Unconfirmed,
 				SeenBy:  copySeenBy(info.SeenBy),
 				Counter: orderCounter,
-			}:
-			default:
 			}
 
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
@@ -120,17 +117,13 @@ mainLoop:
 				localOrderView[key] = info
 
 				orderCounter++
-				select {
-					case OrderOutCh <- OrderMsg{
+				OrderOutCh <- OrderMsg{
 					OwnerID: ownerID,
 					Floor:   cl.Floor,
 					Button:  clearInfo.button,
 					Phase:   Served,
 					SeenBy:  copySeenBy(info.SeenBy),
 					Counter: orderCounter,
-
-					}:
-					default: fmt.Printf("[OM %s] OrderOutCh full, dropper Served melding floor=%d\n", myID, cl.Floor)
 				}
 
 				// Hvis jeg er eneste alive, kan clear bekreftes med en gang
@@ -161,19 +154,14 @@ mainLoop:
 				if !pe.Alive {
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
-							// FIX non-blocking send
 							orderCounter++
-							select {
-							case OrderOutCh <- OrderMsg{
+							OrderOutCh <- OrderMsg{
 								OwnerID: key.OwnerID,
 								Floor:   key.Floor,
 								Button:  key.Button,
 								Phase:   info.Phase,
 								SeenBy:  copySeenBy(info.SeenBy),
 								Counter: orderCounter,
-							}:
-							default:
-
 							}
 						}
 					}
@@ -229,16 +217,13 @@ mainLoop:
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
-				select{
-				case OrderOutCh <- OrderMsg{
+				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
 					Phase:   info.Phase,
 					SeenBy:  copySeenBy(info.SeenBy),
 					Counter: peerOrder.Counter,
-				}:
-				default:
 				}
 			}
 
