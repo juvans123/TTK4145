@@ -198,65 +198,101 @@ mainLoop:
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 
-				// Hvis en heis blir live igjen, send alle dens confirmed cabin orders
-				if pe.Alive && wasDead {
-					
-					if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
-						for floor, isConfirmed := range confirmedCabs {
-							if isConfirmed {
-								OrderTxCh <- OrderMsg{
-									OwnerID: pe.PeerID,
-									Floor:   floor,
-									Button:  config.BT_Cab,
-									Phase:   Confirmed,
-									SeenBy:  map[string]bool{myID: true},
-								}
-							}
-						}
-					}
-					// NYTT: send alle bekreftede hallorders
-					for floor := 0; floor < config.N_FLOORS; floor++ {
-						if ws.ConfirmedHallOrders[floor][config.BT_HallUp]{
-							OrderTxCh <- OrderMsg{
-								OwnerID: "",
-								Floor: floor,
-								Button: config.BT_HallUp,
-								Phase: Confirmed,
-								SeenBy: map[string]bool{myID: true},
-							}
-						}
+			/* for key, info := range localOrderView {
+				if info.SeenBy == nil {
+					continue
+				}
+				if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
+					continue
+				}
 
-						if ws.ConfirmedHallOrders[floor][config.BT_HallDown]{
-							OrderTxCh <- OrderMsg{
-								OwnerID: "",
-								Floor: floor,
-								Button: config.BT_HallDown,
-								Phase: Confirmed,
-								SeenBy: map[string]bool{myID: true},
-							}
-						}
+				switch info.Phase {
+				case Unconfirmed:
+					if confirmOrderInWorldState(&ws, key) {
+						changed = true
+					}
+					info.Phase = Confirmed
+					info.SeenBy = map[string]bool{myID: true}
+					localOrderView[key] = info
+
+					OrderTxCh <- OrderMsg{
+						OwnerID: key.OwnerID,
+						Floor:   key.Floor,
+						Button:  key.Button,
+						Phase:   Confirmed,
+						SeenBy:  copySeenBy(info.SeenBy),
 					}
 
-				} else if !pe.Alive {
-					// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
-					for key, info := range localOrderView {
-						if info.Phase == Unconfirmed || info.Phase == Served {
+				case Served:
+					if clearOrderInWorldState(&ws, key) {
+						changed = true
+					}
+					localOrderView[key] = OrderInfo{
+						Phase:  NoOrder,
+						SeenBy: make(map[string]bool),
+					}
+				}
+			} */
+
+			// Hvis en heis blir live igjen, send alle dens confirmed cabin orders
+			if pe.Alive && wasDead {
+				
+				if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
+					for floor, isConfirmed := range confirmedCabs {
+						if isConfirmed {
 							OrderTxCh <- OrderMsg{
-								OwnerID: key.OwnerID,
-								Floor:   key.Floor,
-								Button:  key.Button,
-								Phase:   info.Phase,
-								SeenBy:  copySeenBy(info.SeenBy),
+								OwnerID: pe.PeerID,
+								Floor:   floor,
+								Button:  config.BT_Cab,
+								Phase:   Confirmed,
+								SeenBy:  map[string]bool{myID: true},
 							}
 						}
 					}
 				}
+				// NYTT: send alle bekreftede hallorders
+				for floor := 0; floor < config.N_FLOORS; floor++ {
+					if ws.ConfirmedHallOrders[floor][config.BT_HallUp]{
+						OrderTxCh <- OrderMsg{
+							OwnerID: "",
+							Floor: floor,
+							Button: config.BT_HallUp,
+							Phase: Confirmed,
+							SeenBy: map[string]bool{myID: true},
+						}
+					}
+
+					if ws.ConfirmedHallOrders[floor][config.BT_HallDown]{
+						OrderTxCh <- OrderMsg{
+							OwnerID: "",
+							Floor: floor,
+							Button: config.BT_HallDown,
+							Phase: Confirmed,
+							SeenBy: map[string]bool{myID: true},
+						}
+					}
+				}
+
+			} else if !pe.Alive {
+				// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
+				for key, info := range localOrderView {
+					if info.Phase == Unconfirmed || info.Phase == Served {
+						OrderTxCh <- OrderMsg{
+							OwnerID: key.OwnerID,
+							Floor:   key.Floor,
+							Button:  key.Button,
+							Phase:   info.Phase,
+							SeenBy:  copySeenBy(info.SeenBy),
+						}
+					}
+				}
 			}
+		}
 
 		case peerOrder := <-OrderRxCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 
-			fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n", myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
+			//fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n", myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
 			info := localOrderView[key]
 			if info.SeenBy == nil {
 				info.SeenBy = make(map[string]bool)
@@ -328,7 +364,7 @@ mainLoop:
 			localOrderView[key] = info
 
 			if shouldRebroadcast {
-				fmt.Printf("[OM %s] REBROADCAST key=%+v phase=%v seenBy=%+v\n", myID, key, info.Phase, info.SeenBy)
+				//fmt.Printf("[OM %s] REBROADCAST key=%+v phase=%v seenBy=%+v\n", myID, key, info.Phase, info.SeenBy)
 				OrderTxCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
@@ -380,7 +416,7 @@ mainLoop:
 		if changed {
 			setButtonLight <- buildLightState(&ws, myID)
 			orders := buildMyLocalOrders(&ws, myID)
-			fmt.Printf("changed")
+			//fmt.Printf("changed")
 			ordersOutCh <- orders
 		}
 	}
@@ -556,8 +592,7 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
-		alive, ok := ws.Alive[id]
-		if ok && !alive {
+		if !ws.Alive[id] {
 			continue
 		}
 

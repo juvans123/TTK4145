@@ -67,6 +67,7 @@ func Run(
 
 		// -------- Orders snapshot fra OM --------
 		case newOrders := <-omOrdersCh:
+			//fmt.Printf("orders:, %v\n", newOrders)
 			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
 			e.Orders = newOrders
@@ -150,13 +151,13 @@ func Run(
 				timer.Reset(doorOpenDuration)
 				continue
 			}
-
+/* 
 			// Hold doren apen og retry clear sa lenge ordre fortsatt finnes pa etasjen.
 		 	if e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
 				timer.Reset(doorOpenDuration)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
-			} 
+			}  */
 
 			closeDoorAndResetLamp(timer)
 
@@ -327,15 +328,42 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 		return ce
 	}
 
-	ce.ClearCab = orders.Cab[floor]
+	/* ce.ClearCab = orders.Cab[floor]
 	ce.ClearHallUp = orders.Hall[floor][config.BT_HallUp]
-	ce.ClearHallDown = orders.Hall[floor][config.BT_HallDown]
+	ce.ClearHallDown = orders.Hall[floor][config.BT_HallDown] */
+
+	hallUp := orders.Hall[floor][config.BT_HallUp]
+	hallDown := orders.Hall[floor][config.BT_HallDown]
+
+	ce.ClearCab = orders.Cab[floor]
+
+	switch dir {
+	case config.TD_Up:
+		if hallUp {
+			ce.ClearHallUp = true
+		}
+		if hallDown && !om.OrdersAbove(orders, floor) {
+			ce.ClearHallDown = true
+		}
+
+	case config.TD_Down:
+		if hallDown {
+			ce.ClearHallDown = true
+		}
+		if hallUp && !om.OrdersBelow(orders, floor) {
+			ce.ClearHallUp = true
+		}
+
+		default:
+		ce.ClearHallUp = hallUp
+		ce.ClearHallDown = hallDown 
+	}
 
 	return ce
 }
 
 
-func ordersAtFloorSnapshot(o *om.Orders, floor int) string {
+/* func ordersAtFloorSnapshot(o *om.Orders, floor int) string {
 	if floor < 0 {
 		return "invalid floor"
 	}
@@ -344,4 +372,4 @@ func ordersAtFloorSnapshot(o *om.Orders, floor int) string {
 		o.Hall[floor][config.BT_HallUp],
 		o.Hall[floor][config.BT_HallDown],
 	)
-}
+} */
