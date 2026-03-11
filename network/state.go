@@ -36,13 +36,13 @@ func RunStateBroadcast(
 				st.ID = myID
 			}
 			last = st
+			//counter++
+			//last.Counter = counter
+			//netTx <- last //Sender hver gang det skjer en endring. Kan en endrig skje raskere enn 100ms????
 		case <-ticker.C:
 			counter++
 			last.Counter = counter
-			select {
-			case netTx <- last:
-			default:
-			}
+			netTx <- last //Sender på hvert tick også 
 		}
 	}
 }
@@ -65,9 +65,7 @@ func RunStateReceive(
 		}
 
 		lastCounter[state.ID] = state.Counter //known settes true indirekte her
-		select {
-		case peerStateCh <- state:
-		default:
-		}
+		
+		peerStateCh <- state
 	}
 }

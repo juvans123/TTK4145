@@ -14,10 +14,7 @@ func RunOrderBroadcast(
 	netTx chan <- om.OrderMsg,
 ) {
 	for msg := range in {
-		select {
-		case netTx <- msg:
-		default:
-		}
+		netTx <- msg
 	}
 }
 
