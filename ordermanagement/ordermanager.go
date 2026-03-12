@@ -23,6 +23,8 @@ func Run(
 	ordersOutCh chan<- Orders,
 	OrderOutCh chan<- OrderMsg, //OM -> Network Denne het TX
 	OrderInCh <-chan OrderMsg, // OM <- Network Denne het RX
+	ResyncOutCh chan<- ResyncMsg,
+	ResyncInCh <-chan ResyncMsg,
 	setButtonLight chan<- config.LightState,
 ) {
 	ws := NewWorldState()
@@ -202,81 +204,9 @@ mainLoop:
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 
-				/* for key, info := range localOrderView {
-					if info.SeenBy == nil {
-						continue
-					}
-					if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
-						continue
-					}
-
-					switch info.Phase {
-					case Unconfirmed:
-						if confirmOrderInWorldState(&ws, key) {
-							changed = true
-						}
-						info.Phase = Confirmed
-						info.SeenBy = map[string]bool{myID: true}
-						localOrderView[key] = info
-
-						OrderTxCh <- OrderMsg{
-							OwnerID: key.OwnerID,
-							Floor:   key.Floor,
-							Button:  key.Button,
-							Phase:   Confirmed,
-							SeenBy:  copySeenBy(info.SeenBy),
-						}
-
-					case Served:
-						if clearOrderInWorldState(&ws, key) {
-							changed = true
-						}
-						localOrderView[key] = OrderInfo{
-							Phase:  NoOrder,
-							SeenBy: make(map[string]bool),
-						}
-					}
-				} */
-
 				// Hvis en heis blir live igjen, send alle dens confirmed cabin orders
 				if pe.Alive && wasDead {
-
-					if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
-						for floor, isConfirmed := range confirmedCabs {
-							if isConfirmed {
-								OrderOutCh <- OrderMsg{
-									OwnerID: pe.PeerID,
-									Floor:   floor,
-									Button:  config.BT_Cab,
-									Phase:   Confirmed,
-									SeenBy:  map[string]bool{myID: true},
-								}
-							}
-						}
-					}
-
-					// NYTT: send alle bekreftede hallorders
-					for floor := 0; floor < config.N_FLOORS; floor++ {
-						if ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
-							OrderOutCh <- OrderMsg{
-								OwnerID: "",
-								Floor:   floor,
-								Button:  config.BT_HallUp,
-								Phase:   Confirmed,
-								SeenBy:  map[string]bool{myID: true},
-							}
-						}
-
-						if ws.ConfirmedHallOrders[floor][config.BT_HallDown] {
-							OrderOutCh <- OrderMsg{
-								OwnerID: "",
-								Floor:   floor,
-								Button:  config.BT_HallDown,
-								Phase:   Confirmed,
-								SeenBy:  map[string]bool{myID: true},
-							}
-						}
-					}
+					ResyncOutCh <- buildResyncMsg(&ws, myID)
 
 				} else if !pe.Alive {
 					// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
@@ -316,6 +246,10 @@ mainLoop:
 
 				}
 
+				if info.Phase == Served {
+					continue mainLoop
+				}
+
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
@@ -325,26 +259,10 @@ mainLoop:
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
 				}
-				// Hvis dette er en av mine caborders som kommer tilbake etter rejoin,
-				// gi FSM et nytt orders-snapshot med en gang.
-				if peerOrder.OwnerID == myID && peerOrder.Button == config.BT_Cab {
-					changed = true
-				}
-
 				break
 			}
 
 			shouldRebroadcast := false
-
-			/* 	// Ny fase: start ny seenBy-runde
-			if info.Phase != peerOrder.Phase {
-				info.Phase = peerOrder.Phase
-				info.SeenBy = make(map[string]bool)
-				shouldRebroadcast = true
-			} */
-			/* if peerOrder.Phase == Served && !isConfirmedInWorldState(&ws, key) {
-				continue mainLoop
-			} */
 
 			if peerOrder.Phase > info.Phase { //Fjernet guard
 				// Peer har en nyere fase enn meg -> oppgrader
@@ -419,6 +337,14 @@ mainLoop:
 					Phase:  NoOrder,
 					SeenBy: make(map[string]bool),
 				}
+			}
+		case msg := <-ResyncInCh:
+			if msg.FromID == myID {
+				continue mainLoop
+			}
+		
+			if mergeResyncMsg(&ws, localOrderView, tombstones, msg, myID) {
+				changed = true
 			}
 		}
 
@@ -669,6 +595,138 @@ func buildLightState(ws *WorldState, myID string) config.LightState {
 	}
 
 	return ls
+}
+
+//---------------------------------------
+type ResyncMsg struct {
+	FromID              string
+	ConfirmedCabOrders  map[string][]bool
+	ConfirmedHallOrders [][]bool
+}
+
+func copyCabOrders(src map[string][]bool) map[string][]bool {
+	dst := make(map[string][]bool)
+	for id, arr := range src {
+		cp := make([]bool, len(arr))
+		copy(cp, arr)
+		dst[id] = cp
+	}
+	return dst
+}
+
+func copyHallOrders(src [config.N_FLOORS][2]bool) [][]bool {
+	dst := make([][]bool, len(src))
+	for i := 0; i < config.N_FLOORS; i++ {
+		dst[i] = make([]bool, 2)
+		dst[i][0] = src[i][0]
+		dst[i][1] = src[i][1]
+	}
+
+	return dst
+}
+
+func buildResyncMsg(ws *WorldState, myID string) ResyncMsg {
+	return ResyncMsg{
+		FromID:              myID,
+		ConfirmedCabOrders:  copyCabOrders(ws.ConfirmedCabOrders),
+		ConfirmedHallOrders: copyHallOrders(ws.ConfirmedHallOrders),
+	}
+}
+
+func mergeResyncMsg(
+	ws *WorldState,
+	localOrderView OrderTracker,
+	tombstones map[OrderKey]tombstoneEntry,
+	msg ResyncMsg,
+	myID string,
+) bool {
+	changed := false
+
+	// Merge cab orders
+	for ownerID, cabs := range msg.ConfirmedCabOrders {
+		if _, ok := ws.ConfirmedCabOrders[ownerID]; !ok {
+			ws.ConfirmedCabOrders[ownerID] = make([]bool, config.N_FLOORS)
+		}
+
+		for floor, confirmed := range cabs {
+			if !confirmed {
+				continue
+			}
+
+			key := makeOrderKey(ownerID, floor, config.BT_Cab)
+
+			// Ikke gjenoppliv nylig clearede ordre
+			if _, tombstoned := tombstones[key]; tombstoned {
+				continue
+			}
+
+			if !ws.ConfirmedCabOrders[ownerID][floor] {
+				ws.ConfirmedCabOrders[ownerID][floor] = true
+				changed = true
+			}
+
+			info := localOrderView[key]
+			if info.SeenBy == nil {
+				info.SeenBy = make(map[string]bool)
+				info.Phase = NoOrder
+			}
+
+			// Ikke overskriv Served med resync
+			if info.Phase < Confirmed {
+				info.Phase = Confirmed
+				info.SeenBy = map[string]bool{myID: true}
+				localOrderView[key] = info
+			}
+		}
+	}
+
+	// Merge hall orders
+	for floor := 0; floor < len(msg.ConfirmedHallOrders); floor++ {
+		// Antar [0] = HallUp, [1] = HallDown
+		if msg.ConfirmedHallOrders[floor][0] {
+			key := makeOrderKey("", floor, config.BT_HallUp)
+			if _, tombstoned := tombstones[key]; !tombstoned {
+				if !ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
+					ws.ConfirmedHallOrders[floor][config.BT_HallUp] = true
+					changed = true
+				}
+
+				info := localOrderView[key]
+				if info.SeenBy == nil {
+					info.SeenBy = make(map[string]bool)
+					info.Phase = NoOrder
+				}
+				if info.Phase < Confirmed {
+					info.Phase = Confirmed
+					info.SeenBy = map[string]bool{myID: true}
+					localOrderView[key] = info
+				}
+			}
+		}
+
+		if msg.ConfirmedHallOrders[floor][1] {
+			key := makeOrderKey("", floor, config.BT_HallDown)
+			if _, tombstoned := tombstones[key]; !tombstoned {
+				if !ws.ConfirmedHallOrders[floor][config.BT_HallDown] {
+					ws.ConfirmedHallOrders[floor][config.BT_HallDown] = true
+					changed = true
+				}
+
+				info := localOrderView[key]
+				if info.SeenBy == nil {
+					info.SeenBy = make(map[string]bool)
+					info.Phase = NoOrder
+				}
+				if info.Phase < Confirmed {
+					info.Phase = Confirmed
+					info.SeenBy = map[string]bool{myID: true}
+					localOrderView[key] = info
+				}
+			}
+		}
+	}
+
+	return changed
 }
 
 /* func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {

@@ -74,6 +74,12 @@ func main() {
 	orderNetRx := make(chan om.OrderMsg, 64) // bcast RX -> network
 	orderIncoming := make(chan om.OrderMsg, 64) // network -> OM
 
+	resyncTx := make(chan om.ResyncMsg, 16)
+	resyncRx := make(chan om.ResyncMsg, 16)
+
+	const resyncPort = 16572
+	go network.Transmitter(resyncPort, resyncTx)
+	go network.Receiver(resyncPort, resyncRx)
 
 	go network.Transmitter(netCfg.HallOrderPort, orderNetTx)
 	go network.Receiver(netCfg.HallOrderPort, orderNetRx)
@@ -111,7 +117,7 @@ func main() {
 
 	// Order manager
   
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, orderInternal, orderIncoming, buttonLights)
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, orderInternal, orderIncoming, resyncTx, resyncRx,buttonLights)
 
 	// FSM
 	t := timer.NewDoorTimer()
@@ -120,50 +126,3 @@ func main() {
 	select {}
 }
 
-/*
-func testAssigner() {
-	// Test input for the assigner
-	in := om.AssignerInput{
-		HallRequests: [][]bool{
-			{false, false},
-			{true, false},
-			{false, true},
-			{true, false},
-		},
-		States: map[string]config.ElevatorState{
-			"id_1": {
-				ID:          "id_1",
-				Behaviour:   config.BehIdle,
-				Floor:       0,
-				Direction:   config.DirStop,
-				CabRequests: []bool{false, false, false, false},
-			},
-			"id_2": {
-				ID:          "id_2",
-				Behaviour:   config.BehMoving,
-				Floor:       2,
-				Direction:   config.DirUp,
-				CabRequests: []bool{false, true, false, false},
-			},
-			"id_3": {
-				ID:          "id_3",
-				Behaviour:   config.BehMoving,
-				Floor:       3,
-				Direction:   config.DirDown,
-				CabRequests: []bool{false, false, false, true},
-			},
-		},
-	}
-
-	// Call the assigner
-	out, err := om.CallAssigner("./hall_request_assigner/hall_request_assigner", in)
-	if err != nil {
-		fmt.Println("Assigner error:", err)
-		return
-	}
-
-	// Print the result
-	b, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println("Assigner output:")
-	fmt.Println(string(b))
-} */
