@@ -332,14 +332,21 @@ mainLoop:
 					info.Phase = Confirmed
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
+
+					OrderOutCh <- OrderMsg{
+						OwnerID: key.OwnerID,
+						Floor: key.Floor,
+						Button: key.Button,
+						Phase: Confirmed, 
+						SeenBy: copySeenBy(info.SeenBy),
+					}
 				}
+				continue mainLoop
 				// Hvis dette er en av mine caborders som kommer tilbake etter rejoin,
 				// gi FSM et nytt orders-snapshot med en gang.
-				if peerOrder.OwnerID == myID && peerOrder.Button == config.BT_Cab {
+				/* if peerOrder.OwnerID == myID && peerOrder.Button == config.BT_Cab {
 					changed = true
-				}
-
-				break
+				} */
 			}
 
 			shouldRebroadcast := false
