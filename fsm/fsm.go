@@ -211,16 +211,45 @@ func Run(
 	}
 }
 
-func elevatorInit(e *Elevator) {
+/* func elevatorInit(e *Elevator) {
 	//updateButtonLights(e)
 	setMotor(elevio.MD_Down)
 	for {
-		if elevio.GetFloor() >= 0 {
+		floor := elevio.GetFloor()
+		if floor >= 0 {
 			stopMotor()
+			e.Floor = floor
+			elevio.SetFloorIndicator(floor)
 			e.Dir = elevio.MD_Stop
 			e.Behavior = EB_Idle
-			break
+			return
 		}
+	}
+} */
+
+func elevatorInit(e *Elevator) {
+	// Hvis vi allerede står i en etasje, bare initialiser state riktig
+	if floor := elevio.GetFloor(); floor >= 0 {
+		e.Floor = floor
+		elevio.SetFloorIndicator(floor)
+		e.Dir = elevio.MD_Stop
+		e.Behavior = EB_Idle
+		return
+	}
+
+	// Hvis vi er mellom etasjer: kjør ned til vi treffer en etasje
+	setMotor(elevio.MD_Down)
+	for {
+		floor := elevio.GetFloor()
+		if floor >= 0 {
+			stopMotor()
+			e.Floor = floor
+			elevio.SetFloorIndicator(floor)
+			e.Dir = elevio.MD_Stop
+			e.Behavior = EB_Idle
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

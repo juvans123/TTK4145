@@ -254,6 +254,7 @@ mainLoop:
 							}
 						}
 					}
+
 					// NYTT: send alle bekreftede hallorders
 					for floor := 0; floor < config.N_FLOORS; floor++ {
 						if ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
@@ -324,6 +325,12 @@ mainLoop:
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
 				}
+				// Hvis dette er en av mine caborders som kommer tilbake etter rejoin,
+				// gi FSM et nytt orders-snapshot med en gang.
+				if peerOrder.OwnerID == myID && peerOrder.Button == config.BT_Cab {
+					changed = true
+				}
+
 				break
 			}
 
