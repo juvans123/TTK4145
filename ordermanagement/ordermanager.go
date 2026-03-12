@@ -233,11 +233,12 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
 			}
-
+/* 
 			if !isConfirmedInWorldState(&ws, key) &&
 				peerOrder.Phase == Served {
 				continue mainLoop
-			}
+				//litt skummel hvis world state på denne noden ligger litt bak. Da kan en legitim Served bli ignorert.
+			} */
 
 			if peerOrder.Phase == Confirmed {
 
@@ -249,6 +250,7 @@ mainLoop:
 				if info.Phase == Served {
 					continue mainLoop
 				}
+				shouldRebroadcast := false
 
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
@@ -256,9 +258,33 @@ mainLoop:
 
 				if info.Phase < Confirmed {
 					info.Phase = Confirmed
-					info.SeenBy = map[string]bool{myID: true}
-					localOrderView[key] = info
+					info.SeenBy = make(map[string]bool)
+					shouldRebroadcast = true
 				}
+
+				for id, seen := range peerOrder.SeenBy {
+					if seen && !info.SeenBy[id] {
+						info.SeenBy[id] = true
+						shouldRebroadcast = true
+					}
+				}
+				if !info.SeenBy[myID] {
+					info.SeenBy[myID] = true
+					shouldRebroadcast = true
+				}
+			
+				localOrderView[key] = info
+			
+				if shouldRebroadcast {
+					OrderOutCh <- OrderMsg{
+						OwnerID: key.OwnerID,
+						Floor:   key.Floor,
+						Button:  key.Button,
+						Phase:   Confirmed,
+						SeenBy:  copySeenBy(info.SeenBy),
+					}
+				}
+			
 				break
 			}
 
@@ -323,12 +349,12 @@ mainLoop:
 				}
 
 			//Hvis en heis har våknet til live og får tilsendt confirmed ordere
-			case Confirmed:
+		/* 	case Confirmed:
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
 				localOrderView[key] = info
-
+ */
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
 					changed = true
