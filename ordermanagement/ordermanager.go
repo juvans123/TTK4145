@@ -318,11 +318,15 @@ mainLoop:
 			}
 
 			if peerOrder.Phase == Confirmed {
+				if info.Phase == Served {
+					continue mainLoop
+				}
 
 				if _, isTombstoned := tombstones[key]; isTombstoned {
 					continue mainLoop
 
 				}
+
 
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
