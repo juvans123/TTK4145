@@ -40,7 +40,7 @@ func Run(
 	}
 
 	// Kun states for lokal testing, ikke alive
-/* 	for _, id := range []string{"elev1", "elev2", "elev3"} {
+	/* 	for _, id := range []string{"elev1", "elev2", "elev3"} {
 		if id != myID {
 			ws.States[id] = config.ElevatorState{
 				ID:          id,
@@ -146,9 +146,8 @@ mainLoop:
 					}
 
 					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
-				
 
-						// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
@@ -158,16 +157,16 @@ mainLoop:
 							SeenBy: make(map[string]bool),
 						}
 
-						} else {
-							OrderOutCh <- OrderMsg{
-								OwnerID: ownerID,
-								Floor:   cl.Floor,
-								Button:  clearInfo.button,
-								Phase:   Served,
-								SeenBy:  copySeenBy(info.SeenBy),
-							}
+					} else {
+						OrderOutCh <- OrderMsg{
+							OwnerID: ownerID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
 						}
-						
+					}
+
 				} else if info.Phase == Served {
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
@@ -602,6 +601,11 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
 		if !ws.Alive[id] {
+			continue
+		}
+
+		// Skip elevators with invalid floor values
+		if state.Floor < 0 || state.Floor >= config.N_FLOORS {
 			continue
 		}
 
