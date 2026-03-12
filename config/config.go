@@ -82,7 +82,7 @@ type SupervisorConfig struct {
 
 func DefaultSupervisorConfig() SupervisorConfig {
 	return SupervisorConfig{
-		TickInterval:     3 * time.Second,
+		TickInterval:     200 * time.Millisecond,
 		SuspectThreshold: 5,
 		ConsensusRequired: 2,
 	}

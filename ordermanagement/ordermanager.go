@@ -40,7 +40,7 @@ func Run(
 	}
 
 	// Kun states for lokal testing, ikke alive
-	for _, id := range []string{"elev1", "elev2", "elev3"} {
+/* 	for _, id := range []string{"elev1", "elev2", "elev3"} {
 		if id != myID {
 			ws.States[id] = config.ElevatorState{
 				ID:          id,
@@ -50,7 +50,7 @@ func Run(
 				CabRequests: make([]bool, config.N_FLOORS),
 			}
 		}
-	}
+	} */
 
 	ordersOutCh <- buildMyLocalOrders(&ws, myID)
 
@@ -146,20 +146,17 @@ mainLoop:
 					}
 
 					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+				
+
+						// Hvis jeg er eneste alive, kan clear bekreftes med en gang
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
 						}
-
-						// Hvis jeg er eneste alive, kan clear bekreftes med en gang
-						if allAliveHaveSeen(info.SeenBy, ws.Alive) {
-							if clearOrderInWorldState(&ws, key) {
-								changed = true
-							}
-							localOrderView[key] = OrderInfo{
-								Phase:  NoOrder,
-								SeenBy: make(map[string]bool),
-							}
+						localOrderView[key] = OrderInfo{
+							Phase:  NoOrder,
+							SeenBy: make(map[string]bool),
+						}
 
 						} else {
 							OrderOutCh <- OrderMsg{
@@ -170,7 +167,7 @@ mainLoop:
 								SeenBy:  copySeenBy(info.SeenBy),
 							}
 						}
-
+						
 					} else if info.Phase == Served {
 						if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 							if clearOrderInWorldState(&ws, key) {
@@ -551,7 +548,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildCabOnlyOrders(ws, myID)
 	}
-
+	fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
 	myLocalOrders := NewOrders(config.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
