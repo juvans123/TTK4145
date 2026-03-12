@@ -604,11 +604,6 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 			continue
 		}
 
-		// Skip elevators with invalid floor values
-		if state.Floor < 0 || state.Floor >= config.N_FLOORS {
-			continue
-		}
-
 		confirmedCab, ok := ws.ConfirmedCabOrders[id]
 		if ok && len(confirmedCab) == config.N_FLOORS {
 			cabCopy := make([]bool, config.N_FLOORS)
