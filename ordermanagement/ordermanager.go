@@ -40,7 +40,7 @@ func Run(
 	}
 
 	// Kun states for lokal testing, ikke alive
-/* 	for _, id := range []string{"elev1", "elev2", "elev3"} {
+	/* 	for _, id := range []string{"elev1", "elev2", "elev3"} {
 		if id != myID {
 			ws.States[id] = config.ElevatorState{
 				ID:          id,
@@ -146,9 +146,8 @@ mainLoop:
 					}
 
 					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
-				
 
-						// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
@@ -158,16 +157,16 @@ mainLoop:
 							SeenBy: make(map[string]bool),
 						}
 
-						} else {
-							OrderOutCh <- OrderMsg{
-								OwnerID: ownerID,
-								Floor:   cl.Floor,
-								Button:  clearInfo.button,
-								Phase:   Served,
-								SeenBy:  copySeenBy(info.SeenBy),
-							}
+					} else {
+						OrderOutCh <- OrderMsg{
+							OwnerID: ownerID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
 						}
-						
+					}
+
 				} else if info.Phase == Served {
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
@@ -244,12 +243,15 @@ mainLoop:
 					if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
 						for floor, isConfirmed := range confirmedCabs {
 							if isConfirmed {
-								OrderOutCh <- OrderMsg{
-									OwnerID: pe.PeerID,
-									Floor:   floor,
-									Button:  config.BT_Cab,
-									Phase:   Confirmed,
-									SeenBy:  map[string]bool{myID: true},
+								key := makeOrderKey(pe.PeerID, floor, config.BT_Cab)
+								if localOrderView[key].Phase != Served {
+									OrderOutCh <- OrderMsg{
+										OwnerID: pe.PeerID,
+										Floor:   floor,
+										Button:  config.BT_Cab,
+										Phase:   Confirmed,
+										SeenBy:  map[string]bool{myID: true},
+									}
 								}
 							}
 						}
@@ -258,22 +260,28 @@ mainLoop:
 					// NYTT: send alle bekreftede hallorders
 					for floor := 0; floor < config.N_FLOORS; floor++ {
 						if ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
-							OrderOutCh <- OrderMsg{
-								OwnerID: "",
-								Floor:   floor,
-								Button:  config.BT_HallUp,
-								Phase:   Confirmed,
-								SeenBy:  map[string]bool{myID: true},
+							key := makeOrderKey("", floor, config.BT_HallUp)
+							if localOrderView[key].Phase != Served {
+								OrderOutCh <- OrderMsg{
+									OwnerID: "",
+									Floor:   floor,
+									Button:  config.BT_HallUp,
+									Phase:   Confirmed,
+									SeenBy:  map[string]bool{myID: true},
+								}
 							}
 						}
 
 						if ws.ConfirmedHallOrders[floor][config.BT_HallDown] {
-							OrderOutCh <- OrderMsg{
-								OwnerID: "",
-								Floor:   floor,
-								Button:  config.BT_HallDown,
-								Phase:   Confirmed,
-								SeenBy:  map[string]bool{myID: true},
+							key := makeOrderKey("", floor, config.BT_HallDown)
+							if localOrderView[key].Phase != Served {
+								OrderOutCh <- OrderMsg{
+									OwnerID: "",
+									Floor:   floor,
+									Button:  config.BT_HallDown,
+									Phase:   Confirmed,
+									SeenBy:  map[string]bool{myID: true},
+								}
 							}
 						}
 					}
