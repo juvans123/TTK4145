@@ -341,7 +341,7 @@ mainLoop:
 						SeenBy: copySeenBy(info.SeenBy),
 					}
 				}
-				continue mainLoop
+				break
 				// Hvis dette er en av mine caborders som kommer tilbake etter rejoin,
 				// gi FSM et nytt orders-snapshot med en gang.
 				/* if peerOrder.OwnerID == myID && peerOrder.Button == config.BT_Cab {
