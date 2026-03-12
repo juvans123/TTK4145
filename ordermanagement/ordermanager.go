@@ -320,18 +320,27 @@ mainLoop:
 					changed = true
 				}
 
-				if info.Phase < Confirmed {
-					info.Phase = Confirmed
-					info.SeenBy = map[string]bool{myID: true}
-					localOrderView[key] = info
-				}
-				// Hvis dette er en av mine caborders som kommer tilbake etter rejoin,
-				// gi FSM et nytt orders-snapshot med en gang.
 				if peerOrder.OwnerID == myID && peerOrder.Button == config.BT_Cab {
 					changed = true
 				}
 
-				break
+				if info.Phase < Confirmed {
+					info.Phase = Confirmed
+					info.SeenBy = map[string]bool{myID: true}
+					localOrderView[key] = info
+
+					// PL: Rebroadcast Confirmed
+
+					OrderOutCh <- OrderMsg{
+						OwnerID: key.OwnerID,
+						Floor: key.Floor,
+						Button: key.Button,
+						Phase: Confirmed,
+						SeenBy: copySeenBy(info.SeenBy),
+
+					}
+				}
+				break // exit select so if changed { ordersOutCh <- ... } is reached
 			}
 
 			shouldRebroadcast := false
