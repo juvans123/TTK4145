@@ -168,23 +168,22 @@ mainLoop:
 							}
 						}
 						
-					} else if info.Phase == Served {
-						if allAliveHaveSeen(info.SeenBy, ws.Alive) {
-							if clearOrderInWorldState(&ws, key) {
-								changed = true
-							}
-							localOrderView[key] = OrderInfo{
-								Phase:  NoOrder,
-								SeenBy: make(map[string]bool),
-							}
-						} else {
-							OrderOutCh <- OrderMsg{
-								OwnerID: ownerID,
-								Floor:   cl.Floor,
-								Button:  clearInfo.button,
-								Phase:   Served,
-								SeenBy:  copySeenBy(info.SeenBy),
-							}
+				} else if info.Phase == Served {
+					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+						if clearOrderInWorldState(&ws, key) {
+							changed = true
+						}
+						localOrderView[key] = OrderInfo{
+							Phase:  NoOrder,
+							SeenBy: make(map[string]bool),
+						}
+					} else {
+						OrderOutCh <- OrderMsg{
+							OwnerID: ownerID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
 						}
 					}
 				}
