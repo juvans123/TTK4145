@@ -247,6 +247,8 @@ mainLoop:
 			}
 
 		case peerOrder := <-OrderInCh:
+			fmt.Printf("[OM %s] peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
+
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 
 			//fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n", myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
@@ -267,7 +269,7 @@ mainLoop:
 
 			if (peerOrder.Phase > info.Phase) /*&& !(peerOrder.Phase == Confirmed && info.Phase != Unconfirmed)*/ { //Fjernet guard
 				// Peer har en nyere fase enn meg -> oppgrader
-				info.Phase = info.Phase + 1//øke med en!!!
+				info.Phase = peerOrder.Phase//øke med en!!!
 				info.SeenBy = make(map[string]bool)
 				//shouldRebroadcast = true
 			} else if peerOrder.Phase < info.Phase {
