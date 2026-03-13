@@ -304,10 +304,12 @@ mainLoop:
 					SeenBy:  copySeenBy(info.SeenBy),
 				}
 			}*/
-
+			fmt.Printf("før all have seen")
 			if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				continue mainLoop
 			}
+			fmt.Printf("etter all have seen")
+
 
 			switch info.Phase {
 			case Unconfirmed:
