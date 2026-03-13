@@ -3,15 +3,9 @@ package ordermanagement
 import (
 	"fmt"
 	"heis/config"
-	"time"
 )
 
-// NYTT
-type tombstoneEntry struct {
-	clearedAt time.Time
-}
 
-const tomstoneTTL = 10 * time.Second
 
 func Run(
 	myID string,
@@ -28,7 +22,7 @@ func Run(
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
 	//NYTT
-	tombstones := make(map[OrderKey]tombstoneEntry)
+	
 
 	ws.Alive[myID] = true
 	ws.States[myID] = config.ElevatorState{
@@ -57,14 +51,7 @@ func Run(
 mainLoop:
 	for {
 		changed := false
-
-		//RYDDER TOMBSTONES SOM HAR UTLØPT
-		now := time.Now()
-		for key, entry := range tombstones {
-			if now.Sub(entry.clearedAt) > tomstoneTTL {
-				delete(tombstones, key)
-			}
-		}
+	
 
 		select {
 		case btn := <-buttonCh:
@@ -134,8 +121,6 @@ mainLoop:
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
 
-					// SETTER TOMBSTONE NÅR FASEN GÅR FRA CONFIRMED TIL SERVED
-					tombstones[key] = tombstoneEntry{clearedAt: time.Now()}
 
 					OrderOutCh <- OrderMsg{
 						OwnerID: ownerID,
@@ -308,44 +293,11 @@ mainLoop:
 				continue mainLoop
 			}
 
-			if peerOrder.Phase == Confirmed {
-
-				if _, isTombstoned := tombstones[key]; isTombstoned {
-					continue mainLoop
-
-				}
-
-				if confirmOrderInWorldState(&ws, key) {
-					changed = true
-				}
-
-				if info.Phase < Confirmed {
-					info.Phase = Confirmed
-					info.SeenBy = map[string]bool{myID: true}
-					localOrderView[key] = info
-				}
-				// Hvis dette er en av mine caborders som kommer tilbake etter rejoin,
-				// gi FSM et nytt orders-snapshot med en gang.
-				if peerOrder.OwnerID == myID && peerOrder.Button == config.BT_Cab {
-					changed = true
-				}
-
-				break
-			}
 
 			shouldRebroadcast := false
 
-			/* 	// Ny fase: start ny seenBy-runde
-			if info.Phase != peerOrder.Phase {
-				info.Phase = peerOrder.Phase
-				info.SeenBy = make(map[string]bool)
-				shouldRebroadcast = true
-			} */
-			/* if peerOrder.Phase == Served && !isConfirmedInWorldState(&ws, key) {
-				continue mainLoop
-			} */
 
-			if peerOrder.Phase > info.Phase { //Fjernet guard
+			if (peerOrder.Phase > info.Phase) && !(peerOrder.Phase == Confirmed && info.Phase != Unconfirmed) { //Fjernet guard
 				// Peer har en nyere fase enn meg -> oppgrader
 				info.Phase = peerOrder.Phase
 				info.SeenBy = make(map[string]bool)
@@ -355,6 +307,7 @@ mainLoop:
 				localOrderView[key] = info
 				continue mainLoop
 			}
+
 
 			// Merge seenBy fra meldingen
 			for id, seen := range peerOrder.SeenBy {
@@ -402,13 +355,6 @@ mainLoop:
 					Phase:   Confirmed,
 					SeenBy:  copySeenBy(info.SeenBy),
 				}
-
-			//Hvis en heis har våknet til live og får tilsendt confirmed ordere
-			case Confirmed:
-				if confirmOrderInWorldState(&ws, key) {
-					changed = true
-				}
-				localOrderView[key] = info
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
