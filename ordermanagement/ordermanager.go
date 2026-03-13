@@ -110,55 +110,53 @@ mainLoop:
 
 		case cl := <-clearCh:
 			clears := []struct {
-                shouldClear bool
-                button      config.ButtonType
-            }{
-                {cl.ClearCab, config.BT_Cab},
-                {cl.ClearHallUp, config.BT_HallUp},
-                {cl.ClearHallDown, config.BT_HallDown},
-            }
+				shouldClear bool
+				button      config.ButtonType
+			}{
+				{cl.ClearCab, config.BT_Cab},
+				{cl.ClearHallUp, config.BT_HallUp},
+				{cl.ClearHallDown, config.BT_HallDown},
+			}
 
-            for _, clearInfo := range clears {
-                if !clearInfo.shouldClear {
-                    continue
-                }
+			for _, clearInfo := range clears {
+				if !clearInfo.shouldClear {
+					continue
+				}
 
-                ownerID := ownerForButton(myID, clearInfo.button)
-                key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
+				ownerID := ownerForButton(myID, clearInfo.button)
+				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
 
-                info := localOrderView[key]
+				info := localOrderView[key]
 
-                // Hvis ordren er confirmed eller served, clear den umiddelbart siden FSM har tatt den
-                if info.Phase == Confirmed || info.Phase == Served {
-                    if info.Phase == Confirmed {
-                        // SETTER TOMBSTONE NÅR FASEN GÅR FRA CONFIRMED TIL SERVED
-                        tombstones[key] = tombstoneEntry{clearedAt: time.Now()}
-                    }
+				// Hvis ordren er confirmed eller served, clear den umiddelbart siden FSM har tatt den
+				if info.Phase == Confirmed || info.Phase == Served {
+					if info.Phase == Confirmed {
+						// SETTER TOMBSTONE NÅR FASEN GÅR FRA CONFIRMED TIL SERVED
+						tombstones[key] = tombstoneEntry{clearedAt: time.Now()}
+					}
 
-                    info.Phase = Served
-                    info.SeenBy = map[string]bool{myID: true}
-                    localOrderView[key] = info
+					info.Phase = Served
+					info.SeenBy = map[string]bool{myID: true}
+					localOrderView[key] = info
 
-                    OrderOutCh <- OrderMsg{
-                        OwnerID: ownerID,
-                        Floor:   cl.Floor,
-                        Button:  clearInfo.button,
-                        Phase:   Served,
-                        SeenBy:  copySeenBy(info.SeenBy),
-                    }
+					OrderOutCh <- OrderMsg{
+						OwnerID: ownerID,
+						Floor:   cl.Floor,
+						Button:  clearInfo.button,
+						Phase:   Served,
+						SeenBy:  copySeenBy(info.SeenBy),
+					}
 
-                    // Clear umiddelbart siden FSM allerede har tatt ordren
-                    if clearOrderInWorldState(&ws, key) {
-                        changed = true
-                    }
-                    /*localOrderView[key] = OrderInfo{
-                        Phase:  NoOrder,
-                        SeenBy: make(map[string]bool),
-                    }*/
-                }
-            }
-
-
+					// Clear umiddelbart siden FSM allerede har tatt ordren
+					if clearOrderInWorldState(&ws, key) {
+						changed = true
+					}
+					/*localOrderView[key] = OrderInfo{
+					    Phase:  NoOrder,
+					    SeenBy: make(map[string]bool),
+					}*/
+				}
+			}
 
 		case st := <-localStateCh:
 			ws.States[st.ID] = st
@@ -275,17 +273,12 @@ mainLoop:
 				info.Phase = NoOrder
 			}
 
-			if !isConfirmedInWorldState(&ws, key) &&
-				peerOrder.Phase == Served {
-				continue mainLoop
-			}
-
 			if peerOrder.Phase == Confirmed {
 
 				if _, isTombstoned := tombstones[key]; isTombstoned {
 					continue mainLoop
 
-				}
+				}  
 
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
