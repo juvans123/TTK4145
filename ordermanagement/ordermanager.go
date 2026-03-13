@@ -181,6 +181,8 @@ mainLoop:
 			ws.States[pst.ID] = pst
 
 		case pe := <-peerEventCh:
+			fmt.Printf("[OM %s] peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
+
 			prev, exists := ws.Alive[pe.PeerID]
 			if !exists || prev != pe.Alive {
 				//wasDead := exists && !prev
@@ -247,8 +249,6 @@ mainLoop:
 			}
 
 		case peerOrder := <-OrderInCh:
-			fmt.Printf("[OM %s] peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
-
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 
 			//fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n", myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
