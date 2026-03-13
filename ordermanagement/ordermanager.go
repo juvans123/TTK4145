@@ -69,13 +69,13 @@ mainLoop:
 			localOrderView[key] = info
 
 			//FIX
-			OrderOutCh <- OrderMsg{
+		/*	OrderOutCh <- OrderMsg{
 				OwnerID: ownerID,
 				Floor:   btn.Floor,
 				Button:  btn.Button,
 				Phase:   Unconfirmed,
 				SeenBy:  copySeenBy(info.SeenBy),
-			}
+			}*/
 
 			// Hvis jeg er eneste alive, kan ordren bekreftes med en gang
 			if allAliveHaveSeen(info.SeenBy, ws.Alive) {
@@ -86,13 +86,13 @@ mainLoop:
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
-				OrderOutCh <- OrderMsg{
+			/*	OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   btn.Floor,
 					Button:  btn.Button,
 					Phase:   Confirmed,
 					SeenBy:  copySeenBy(info.SeenBy),
-				}
+				}*/
 			}
 
 		case cl := <-clearCh:
@@ -112,7 +112,6 @@ mainLoop:
 
 				ownerID := ownerForButton(myID, clearInfo.button)
 				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
-
 				info := localOrderView[key]
 
 				// Start bare clear hvis ordren faktisk er confirmed lokalt
@@ -122,15 +121,13 @@ mainLoop:
 					localOrderView[key] = info
 
 
-					OrderOutCh <- OrderMsg{
+				/*	OrderOutCh <- OrderMsg{
 						OwnerID: ownerID,
 						Floor:   cl.Floor,
 						Button:  clearInfo.button,
 						Phase:   Served,
 						SeenBy:  copySeenBy(info.SeenBy),
-					}
-
-					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+					}*/
 
 					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
@@ -142,7 +139,7 @@ mainLoop:
 							SeenBy: make(map[string]bool),
 						}
 
-					} else {
+					}/* else {
 						OrderOutCh <- OrderMsg{
 							OwnerID: ownerID,
 							Floor:   cl.Floor,
@@ -150,7 +147,7 @@ mainLoop:
 							Phase:   Served,
 							SeenBy:  copySeenBy(info.SeenBy),
 						}
-					}
+					}*/
 
 				} else if info.Phase == Served {
 					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
@@ -161,7 +158,7 @@ mainLoop:
 							Phase:  NoOrder,
 							SeenBy: make(map[string]bool),
 						}
-					} else {
+					}/* else {
 						OrderOutCh <- OrderMsg{
 							OwnerID: ownerID,
 							Floor:   cl.Floor,
@@ -169,7 +166,7 @@ mainLoop:
 							Phase:   Served,
 							SeenBy:  copySeenBy(info.SeenBy),
 						}
-					}
+					}*/
 				}
 			}
 
@@ -182,48 +179,13 @@ mainLoop:
 		case pe := <-peerEventCh:
 			prev, exists := ws.Alive[pe.PeerID]
 			if !exists || prev != pe.Alive {
-				wasDead := exists && !prev
+				//wasDead := exists && !prev
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 
-				/* for key, info := range localOrderView {
-					if info.SeenBy == nil {
-						continue
-					}
-					if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
-						continue
-					}
-
-					switch info.Phase {
-					case Unconfirmed:
-						if confirmOrderInWorldState(&ws, key) {
-							changed = true
-						}
-						info.Phase = Confirmed
-						info.SeenBy = map[string]bool{myID: true}
-						localOrderView[key] = info
-
-						OrderTxCh <- OrderMsg{
-							OwnerID: key.OwnerID,
-							Floor:   key.Floor,
-							Button:  key.Button,
-							Phase:   Confirmed,
-							SeenBy:  copySeenBy(info.SeenBy),
-						}
-
-					case Served:
-						if clearOrderInWorldState(&ws, key) {
-							changed = true
-						}
-						localOrderView[key] = OrderInfo{
-							Phase:  NoOrder,
-							SeenBy: make(map[string]bool),
-						}
-					}
-				} */
 
 				// Hvis en heis blir live igjen, send alle dens confirmed cabin orders
-				if pe.Alive && wasDead {
+				/*if pe.Alive && wasDead {
 
 					if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
 						for floor, isConfirmed := range confirmedCabs {
@@ -262,7 +224,9 @@ mainLoop:
 						}
 					}
 
-				} else if !pe.Alive {
+				}
+				
+				if !pe.Alive {
 					// Hvis en heis dør, rebroadcast alle ventende ordrer slik at de re-evalueres
 					for key, info := range localOrderView {
 						if info.Phase == Unconfirmed || info.Phase == Served {
@@ -275,7 +239,7 @@ mainLoop:
 							}
 						}
 					}
-				}
+				}*/
 			}
 
 		case peerOrder := <-OrderInCh:
@@ -294,14 +258,14 @@ mainLoop:
 			}
 
 
-			shouldRebroadcast := false
+			//shouldRebroadcast := false
 
 
-			if (peerOrder.Phase > info.Phase) && !(peerOrder.Phase == Confirmed && info.Phase != Unconfirmed) { //Fjernet guard
+			if (peerOrder.Phase > info.Phase) /*&& !(peerOrder.Phase == Confirmed && info.Phase != Unconfirmed)*/ { //Fjernet guard
 				// Peer har en nyere fase enn meg -> oppgrader
-				info.Phase = peerOrder.Phase
+				info.Phase = peerOrder.Phase //øke med en!!!
 				info.SeenBy = make(map[string]bool)
-				shouldRebroadcast = true
+				//shouldRebroadcast = true
 			} else if peerOrder.Phase < info.Phase {
 				// Peer har en eldre fase enn meg -> ignorer meldingen
 				localOrderView[key] = info
@@ -313,19 +277,19 @@ mainLoop:
 			for id, seen := range peerOrder.SeenBy {
 				if seen && !info.SeenBy[id] {
 					info.SeenBy[id] = true
-					shouldRebroadcast = true
+					//shouldRebroadcast = true
 				}
 			}
 
 			// Marker at jeg også har sett meldingen
 			if !info.SeenBy[myID] {
 				info.SeenBy[myID] = true
-				shouldRebroadcast = true
+				//shouldRebroadcast = true
 			}
 
 			localOrderView[key] = info
 
-			if shouldRebroadcast {
+			/*if shouldRebroadcast {
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
@@ -333,7 +297,7 @@ mainLoop:
 					Phase:   info.Phase,
 					SeenBy:  copySeenBy(info.SeenBy),
 				}
-			}
+			}*/
 
 			if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				continue mainLoop
@@ -348,13 +312,13 @@ mainLoop:
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
-				OrderOutCh <- OrderMsg{
+				/*OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
 					Phase:   Confirmed,
 					SeenBy:  copySeenBy(info.SeenBy),
-				}
+				}*/
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {
