@@ -69,10 +69,10 @@ func main() {
 	//OrderTx := make(chan om.OrderMsg, 16)
 	//OrderRx := make(chan om.OrderMsg, 64)
 
-	orderInternal := make(chan om.OrderMsg, 16) //OM -> network
-	orderNetTx := make(chan om.OrderMsg, 16) // network -> bcast TX
-	orderNetRx := make(chan om.OrderMsg, 64) // bcast RX -> network
-	orderIncoming := make(chan om.OrderMsg, 64) // network -> OM
+	orderInternal := make(chan om.OrderMsg, 128) //OM -> network
+	orderNetTx := make(chan om.OrderMsg, 128) // network -> bcast TX
+	orderNetRx := make(chan om.OrderMsg, 256) // bcast RX -> network
+	orderIncoming := make(chan om.OrderMsg, 256) // network -> OM
 
 
 	go network.Transmitter(netCfg.HallOrderPort, orderNetTx)

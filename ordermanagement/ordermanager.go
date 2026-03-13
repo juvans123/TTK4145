@@ -30,6 +30,9 @@ func Run(
 	//NYTT
 	tombstones := make(map[OrderKey]tombstoneEntry)
 
+	retransmitTicker := time.NewTicker(500 * time.Millisecond)
+	defer retransmitTicker.Stop()
+
 	ws.Alive[myID] = true
 	ws.States[myID] = config.ElevatorState{
 		ID:          myID,
@@ -297,8 +300,9 @@ mainLoop:
 		case peerOrder := <-OrderInCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 
-			//fmt.Printf("[OM %s] RX peerOrder key=%+v phase=%v incomingSeenBy=%+v localPhase=%v alive=%+v\n", myID, key, peerOrder.Phase, peerOrder.SeenBy, localOrderView[key].Phase, ws.Alive)
 			info := localOrderView[key]
+			fmt.Printf("[OM %s] RX key=%v phase=%v incomingSeenBy=%v | localPhase=%v localSeenBy=%v | alive=%v\n", myID, key, peerOrder.Phase, peerOrder.SeenBy, info.Phase, info.SeenBy , ws.Alive)
+
 			if info.SeenBy == nil {
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
@@ -393,6 +397,14 @@ mainLoop:
 			}
 
 			if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
+				//KUN FOR DEBUG
+				for id, isAlive := range ws.Alive {
+					if isAlive && !info.SeenBy[id] {
+						fmt.Printf("[OM %s] VENTER PÅ KEY=%v phase=%v -mangler bekreftelse fra: %s\n", 
+
+						myID, key, info.Phase, id)
+					}
+				}
 				continue mainLoop
 			}
 
@@ -404,6 +416,9 @@ mainLoop:
 				info.Phase = Confirmed
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
+
+				//DEBUG
+				fmt.Printf("[OM %s] CONFIRMED key=%v sender Confirmed ut\n", myID,key)
 
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
@@ -429,6 +444,23 @@ mainLoop:
 					SeenBy: make(map[string]bool),
 				}
 			}
+
+		case <- retransmitTicker.C:
+			for key, info := range localOrderView{
+				if info.Phase != Unconfirmed {
+					continue
+				}
+
+				OrderOutCh <- OrderMsg{
+					OwnerID: key.OwnerID,
+					Floor: key.Floor,
+					Button: key.Button,
+					Phase: Unconfirmed,
+					SeenBy: copySeenBy(info.SeenBy),
+				}
+			}
+
+
 		}
 
 		if changed {
@@ -563,7 +595,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildCabOnlyOrders(ws, myID)
 	}
-	fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
+	//fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
 	myLocalOrders := NewOrders(config.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]

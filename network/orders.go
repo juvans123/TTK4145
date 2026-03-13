@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	orderRetransmitInterval = 100 * time.Millisecond
+	orderRetransmitInterval = 130 * time.Millisecond
 	orderRetransmitCount    = 5 // Antall resendiger etter første send
 )
 
@@ -21,6 +21,7 @@ func RunOrderBroadcast(
 		msg       om.OrderMsg
 		remaining int
 	}
+
 	ticker := time.NewTicker(orderRetransmitInterval)
 	defer ticker.Stop()
 
@@ -47,18 +48,14 @@ func RunOrderBroadcast(
 			}
 
 			// NYTT: SEND ALLTID UMIDDELBART
-			select {
-			case netTx <- msg:
-			default:
-			}
+			
+			netTx <- msg
+			
 		case <-ticker.C:
 			//Resend alle ventede meldinger i køen, dekrementer remaining
 			next := queue[:0]
 			for _, p := range queue {
-				select {
-				case netTx <- p.msg:
-				default:
-				}
+				netTx <- p.msg
 				p.remaining--
 				if p.remaining > 0 {
 					next = append(next, p)

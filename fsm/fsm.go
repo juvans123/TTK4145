@@ -1,7 +1,7 @@
 package fsm
 
 import (
-	"fmt"
+	//"fmt"
 	"heis/config"
 	"heis/elevio"
 	om "heis/ordermanagement"
@@ -80,7 +80,7 @@ func Run(
 			// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
 				timer.Reset(doorOpenDuration)
-				fmt.Printf("reset dør")
+				//fmt.Printf("reset dør")
 				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
 				clearCh <- ce
