@@ -212,14 +212,22 @@ mainLoop:
 
 					if confirmedCabs, ok := ws.ConfirmedCabOrders[pe.PeerID]; ok {
 						for floor, isConfirmed := range confirmedCabs {
-							if isConfirmed {
-								OrderOutCh <- OrderMsg{
-									OwnerID: pe.PeerID,
-									Floor:   floor,
-									Button:  config.BT_Cab,
-									Phase:   Confirmed,
-									SeenBy:  map[string]bool{myID: true},
-								}
+							if !isConfirmed {
+								continue
+							}
+
+							key := makeOrderKey(pe.PeerID, floor, config.BT_Cab)
+							// Hvis vi nettopp har clearet ordren, ikke resende den
+							if _, tombstoned := tombstones[key]; tombstoned {
+								continue
+							}
+
+							OrderOutCh <- OrderMsg{
+								OwnerID: pe.PeerID,
+								Floor:   floor,
+								Button:  config.BT_Cab,
+								Phase:   Confirmed,
+								SeenBy:  map[string]bool{myID: true},
 							}
 						}
 					}
@@ -227,22 +235,28 @@ mainLoop:
 					// NYTT: send alle bekreftede hallorders
 					for floor := 0; floor < config.N_FLOORS; floor++ {
 						if ws.ConfirmedHallOrders[floor][config.BT_HallUp] {
-							OrderOutCh <- OrderMsg{
-								OwnerID: "",
-								Floor:   floor,
-								Button:  config.BT_HallUp,
-								Phase:   Confirmed,
-								SeenBy:  map[string]bool{myID: true},
+							key := makeOrderKey("", floor, config.BT_HallUp)
+							if _, tombstoned := tombstones[key]; !tombstoned {
+								OrderOutCh <- OrderMsg{
+									OwnerID: "",
+									Floor:   floor,
+									Button:  config.BT_HallUp,
+									Phase:   Confirmed,
+									SeenBy:  map[string]bool{myID: true},
+								}
 							}
 						}
 
 						if ws.ConfirmedHallOrders[floor][config.BT_HallDown] {
-							OrderOutCh <- OrderMsg{
-								OwnerID: "",
-								Floor:   floor,
-								Button:  config.BT_HallDown,
-								Phase:   Confirmed,
-								SeenBy:  map[string]bool{myID: true},
+							key := makeOrderKey("", floor, config.BT_HallDown)
+							if _, tombstoned := tombstones[key]; !tombstoned {
+								OrderOutCh <- OrderMsg{
+									OwnerID: "",
+									Floor:   floor,
+									Button:  config.BT_HallDown,
+									Phase:   Confirmed,
+									SeenBy:  map[string]bool{myID: true},
+								}
 							}
 						}
 					}
@@ -278,7 +292,12 @@ mainLoop:
 				if _, isTombstoned := tombstones[key]; isTombstoned {
 					continue mainLoop
 
-				}  
+				}
+
+				if !isConfirmedInWorldState(&ws, key) &&
+					peerOrder.Phase == Served {
+					continue mainLoop
+				}
 
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
