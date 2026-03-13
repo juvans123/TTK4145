@@ -59,6 +59,14 @@ func main() {
 	stateRx := make(chan config.ElevatorState, 64)
 	peerStateCh := make(chan config.ElevatorState, 64)
 
+	SyncRespPort := 15654
+
+	syncRespOutCh := make(chan om.SyncResponse, 4)  // OM -> network -> bcast
+	syncRespInCh  := make(chan om.SyncResponse, 16) // bcast -> network -> OM
+
+	go network.Transmitter(SyncRespPort, syncRespOutCh)
+	go network.Receiver(SyncRespPort, syncRespInCh)
+
 	go network.Transmitter(netCfg.StatePort, stateTx)
 	go network.Receiver(netCfg.StatePort, stateRx)
 
@@ -111,59 +119,15 @@ func main() {
 
 	// Order manager
   
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, orderInternal, orderIncoming, buttonLights)
 
+	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh,
+		ordersOutCh, orderInternal, orderIncoming, buttonLights,
+		syncRespInCh,   // <-chan SyncResponse
+		syncRespOutCh,  // chan<- SyncResponse
+	)
 	// FSM
 	t := timer.NewDoorTimer()
 	go fsm.Run(myID, t, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLights)
 
 	select {}
 }
-
-/*
-func testAssigner() {
-	// Test input for the assigner
-	in := om.AssignerInput{
-		HallRequests: [][]bool{
-			{false, false},
-			{true, false},
-			{false, true},
-			{true, false},
-		},
-		States: map[string]config.ElevatorState{
-			"id_1": {
-				ID:          "id_1",
-				Behaviour:   config.BehIdle,
-				Floor:       0,
-				Direction:   config.DirStop,
-				CabRequests: []bool{false, false, false, false},
-			},
-			"id_2": {
-				ID:          "id_2",
-				Behaviour:   config.BehMoving,
-				Floor:       2,
-				Direction:   config.DirUp,
-				CabRequests: []bool{false, true, false, false},
-			},
-			"id_3": {
-				ID:          "id_3",
-				Behaviour:   config.BehMoving,
-				Floor:       3,
-				Direction:   config.DirDown,
-				CabRequests: []bool{false, false, false, true},
-			},
-		},
-	}
-
-	// Call the assigner
-	out, err := om.CallAssigner("./hall_request_assigner/hall_request_assigner", in)
-	if err != nil {
-		fmt.Println("Assigner error:", err)
-		return
-	}
-
-	// Print the result
-	b, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println("Assigner output:")
-	fmt.Println(string(b))
-} */

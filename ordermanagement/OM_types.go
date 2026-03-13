@@ -57,3 +57,14 @@ type AssignerInput struct {
 }
 
 type AssignerOutput map[string][][]bool
+
+/* type SyncRequest struct {
+    FromID string
+}
+ */
+type SyncResponse struct {
+    FromID              string
+    ConfirmedHallOrders [config.N_FLOORS][2]bool
+    ConfirmedCabOrders  map[string][]bool
+    //Tombstones          map[OrderKey]time.Time // sender med tombstones!
+}
