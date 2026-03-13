@@ -304,11 +304,11 @@ mainLoop:
 					SeenBy:  copySeenBy(info.SeenBy),
 				}
 			}*/
-			fmt.Printf("før all have seen, \n")
+			//fmt.Printf("før all have seen, \n")
 			if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				continue mainLoop
 			}
-			fmt.Printf("etter all have seen, \n")
+			//fmt.Printf("etter all have seen, \n")
 
 
 			switch info.Phase {
@@ -341,6 +341,8 @@ mainLoop:
 			}
 		case <-SendTicker.C:
 			for key, info := range localOrderView{
+				fmt.Printf("[OM %s] ticker key=%+v phase=%v seenBy=%+v alive=%+v\n", 
+				myID, key, info.Phase, info.SeenBy, ws.Alive)
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor: key.Floor,
