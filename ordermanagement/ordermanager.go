@@ -138,10 +138,11 @@ mainLoop:
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
 						}
-						localOrderView[key] = OrderInfo{
+						/* localOrderView[key] = OrderInfo{
 							Phase:  NoOrder,
 							SeenBy: make(map[string]bool),
-						}
+						} */
+						delete(localOrderView, key)
 
 					
 
@@ -160,10 +161,7 @@ mainLoop:
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
 						}
-						localOrderView[key] = OrderInfo{
-							Phase:  NoOrder,
-							SeenBy: make(map[string]bool),
-						}
+						delete(localOrderView, key)
 					}/* else {
 						OrderOutCh <- OrderMsg{
 							OwnerID: ownerID,
@@ -337,10 +335,7 @@ mainLoop:
 				if clearOrderInWorldState(&ws, key) {
 					changed = true
 				}
-				localOrderView[key] = OrderInfo{
-					Phase:  NoOrder,
-					SeenBy: make(map[string]bool),
-				}
+				delete(localOrderView, key)
 				fmt.Printf("no order, \n")
 			}
 		case <-SendTicker.C:
