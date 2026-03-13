@@ -258,10 +258,10 @@ mainLoop:
 				info.Phase = NoOrder
 			}
 
-			if !isConfirmedInWorldState(&ws, key) &&
+		/* 	if !isConfirmedInWorldState(&ws, key) &&
 				peerOrder.Phase == Served {
 				continue mainLoop
-			}
+			} */
 
 
 			//shouldRebroadcast := false
@@ -330,6 +330,11 @@ mainLoop:
 					Phase:   Confirmed,
 					SeenBy:  copySeenBy(info.SeenBy),
 				}*/
+			case Confirmed:
+				if confirmOrderInWorldState(&ws, key) {
+					changed = true
+				}
+				localOrderView[key] = info
 
 			case Served:
 				if clearOrderInWorldState(&ws, key) {

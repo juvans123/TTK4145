@@ -1,7 +1,7 @@
 package fsm
 
 import (
-	"fmt"
+	//"fmt"
 	"heis/config"
 	"heis/elevio"
 	om "heis/ordermanagement"
@@ -66,7 +66,7 @@ func Run(
 		select {
 
 		// -------- Orders snapshot fra OM --------
-		case newOrders := <-omOrdersCh:
+		/* case newOrders := <-omOrdersCh:
 			//fmt.Printf("orders:, %v\n", newOrders)
 			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
@@ -100,6 +100,46 @@ func Run(
 				continue
 			}
 
+			if e.Behavior == EB_Idle {
+				travelDir, behavior, dir := chooseDirection(&e)
+				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
+				if e.Behavior == EB_Moving {
+					setMotor(e.Dir)
+				}
+				publishIfChanged()
+			} */
+
+		case newOrders := <-omOrdersCh:
+			prevOrders := e.Orders
+			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&prevOrders, e.Floor)
+		
+			e.Orders = newOrders
+		
+			if stopPressed {
+				publishIfChanged()
+				continue
+			}
+		
+			nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
+		
+			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
+				if nowAtFloor && !prevAtFloor {
+					timer.Reset(doorOpenDuration)
+					ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+					clearCh <- ce
+				}
+				publishIfChanged()
+				continue
+			}
+		
+			if e.Behavior == EB_Idle && e.Floor >= 0 && nowAtFloor {
+				e.Behavior = EB_DoorOpen
+				openDoorAndSetLamp(timer)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				publishIfChanged()
+				continue
+			}
+		
 			if e.Behavior == EB_Idle {
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
