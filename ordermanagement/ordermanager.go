@@ -3,6 +3,7 @@ package ordermanagement
 import (
 	"fmt"
 	"heis/config"
+	"time"
 )
 
 
@@ -21,7 +22,10 @@ func Run(
 ) {
 	ws := NewWorldState()
 	localOrderView := make(OrderTracker)
+
 	//NYTT
+	SendTicker := time.NewTicker(100 * time.Millisecond)
+	defer SendTicker.Stop()
 	
 
 	ws.Alive[myID] = true
@@ -263,7 +267,7 @@ mainLoop:
 
 			if (peerOrder.Phase > info.Phase) /*&& !(peerOrder.Phase == Confirmed && info.Phase != Unconfirmed)*/ { //Fjernet guard
 				// Peer har en nyere fase enn meg -> oppgrader
-				info.Phase = peerOrder.Phase //øke med en!!!
+				info.Phase = info.Phase + 1//øke med en!!!
 				info.SeenBy = make(map[string]bool)
 				//shouldRebroadcast = true
 			} else if peerOrder.Phase < info.Phase {
@@ -327,6 +331,16 @@ mainLoop:
 				localOrderView[key] = OrderInfo{
 					Phase:  NoOrder,
 					SeenBy: make(map[string]bool),
+				}
+			}
+		case <-SendTicker.C:
+			for key, info := range localOrderView{
+				OrderOutCh <- OrderMsg{
+					OwnerID: key.OwnerID,
+					Floor: key.Floor,
+					Button: key.Button,
+					Phase: info.Phase,
+					SeenBy: copySeenBy(info.SeenBy),
 				}
 			}
 		}
