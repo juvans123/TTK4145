@@ -134,14 +134,21 @@ mainLoop:
 					}*/
 
 					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
-					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+					/* if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 						if clearOrderInWorldState(&ws, key) {
 							changed = true
 						}
 						localOrderView[key] = OrderInfo{
 							Phase:  NoOrder,
 							SeenBy: make(map[string]bool),
-						}
+						} */
+
+					if clearOrderInWorldState(&ws, key) {
+						changed = true
+					}
+					localOrderView[key] = OrderInfo{
+						Phase:  NoOrder,
+						SeenBy: make(map[string]bool),
 
 					}/* else {
 						OrderOutCh <- OrderMsg{
