@@ -304,11 +304,11 @@ mainLoop:
 					SeenBy:  copySeenBy(info.SeenBy),
 				}
 			}*/
-			fmt.Printf("før all have seen")
+			fmt.Printf("før all have seen, \n")
 			if !allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				continue mainLoop
 			}
-			fmt.Printf("etter all have seen")
+			fmt.Printf("etter all have seen, \n")
 
 
 			switch info.Phase {
@@ -317,6 +317,7 @@ mainLoop:
 					changed = true
 				}
 				info.Phase = Confirmed
+				fmt.Printf("confirmer, \n")
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
@@ -336,6 +337,7 @@ mainLoop:
 					Phase:  NoOrder,
 					SeenBy: make(map[string]bool),
 				}
+				fmt.Printf("no order, \n")
 			}
 		case <-SendTicker.C:
 			for key, info := range localOrderView{
