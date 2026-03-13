@@ -128,16 +128,14 @@ mainLoop:
 
 				info := localOrderView[key]
 
-				// Hvis ordren er confirmed eller served, clear den umiddelbart siden FSM har tatt den
-				if info.Phase == Confirmed || info.Phase == Served {
-					if info.Phase == Confirmed {
-						// SETTER TOMBSTONE NÅR FASEN GÅR FRA CONFIRMED TIL SERVED
-						tombstones[key] = tombstoneEntry{clearedAt: time.Now()}
-					}
-
+				// Start bare clear hvis ordren faktisk er confirmed lokalt
+				if info.Phase == Confirmed {
 					info.Phase = Served
 					info.SeenBy = map[string]bool{myID: true}
 					localOrderView[key] = info
+
+					// SETTER TOMBSTONE NÅR FASEN GÅR FRA CONFIRMED TIL SERVED
+					tombstones[key] = tombstoneEntry{clearedAt: time.Now()}
 
 					OrderOutCh <- OrderMsg{
 						OwnerID: ownerID,
@@ -147,16 +145,49 @@ mainLoop:
 						SeenBy:  copySeenBy(info.SeenBy),
 					}
 
-					// Clear umiddelbart siden FSM allerede har tatt ordren
-					if clearOrderInWorldState(&ws, key) {
-						changed = true
+					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+
+					// Hvis jeg er eneste alive, kan clear bekreftes med en gang
+					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+						if clearOrderInWorldState(&ws, key) {
+							changed = true
+						}
+						localOrderView[key] = OrderInfo{
+							Phase:  NoOrder,
+							SeenBy: make(map[string]bool),
+						}
+
+					} else {
+						OrderOutCh <- OrderMsg{
+							OwnerID: ownerID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
+						}
 					}
-					/*localOrderView[key] = OrderInfo{
-					    Phase:  NoOrder,
-					    SeenBy: make(map[string]bool),
-					}*/
+
+				} else if info.Phase == Served {
+					if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+						if clearOrderInWorldState(&ws, key) {
+							changed = true
+						}
+						localOrderView[key] = OrderInfo{
+							Phase:  NoOrder,
+							SeenBy: make(map[string]bool),
+						}
+					} else {
+						OrderOutCh <- OrderMsg{
+							OwnerID: ownerID,
+							Floor:   cl.Floor,
+							Button:  clearInfo.button,
+							Phase:   Served,
+							SeenBy:  copySeenBy(info.SeenBy),
+						}
+					}
 				}
 			}
+
 
 		case st := <-localStateCh:
 			ws.States[st.ID] = st
