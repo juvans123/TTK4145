@@ -91,9 +91,9 @@ mainLoop:
 				localOrderView[key] = info
 
 				// Clear worldstate lokalt (idempotent)
-				if clearOrderInWorldState(&ws, key) {
+			/* 	if clearOrderInWorldState(&ws, key) {
 					changed = true
-				}
+				} */
 			}
 
 		case st := <-localStateCh:
