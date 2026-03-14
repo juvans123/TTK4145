@@ -6,6 +6,7 @@ import (
 	"heis/elevio"
 	om "heis/ordermanagement"
 	"time"
+	"fmt"
 )
 
 type DoorTimer interface {
@@ -53,9 +54,11 @@ func Run(
 		st := PublicStateFromFSM(e, myID)
 		if st.Floor != lastPublished.Floor ||
 			st.Behaviour != lastPublished.Behaviour ||
-			st.Direction != lastPublished.Direction {
+			st.Direction != lastPublished.Direction ||
+			!cabRequestsEqual(st.CabRequests, lastPublished.CabRequests) {
 			select {
 			case stateOutCh <- st:
+				fmt.Printf("[FSM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v\n", myID, st.Floor, st.Behaviour, st.Direction, st.CabRequests)
 				lastPublished = st
 			default:
 			}
@@ -439,13 +442,14 @@ func shouldTakeOrdersAtFloor(e *Elevator) bool {
 	return ce.ClearCab || ce.ClearHallUp || ce.ClearHallDown
 }
 
-/* func ordersAtFloorSnapshot(o *om.Orders, floor int) string {
-	if floor < 0 {
-		return "invalid floor"
+func cabRequestsEqual(a, b []bool) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	return fmt.Sprintf("cab=%v hallUp=%v hallDown=%v",
-		o.Cab[floor],
-		o.Hall[floor][config.BT_HallUp],
-		o.Hall[floor][config.BT_HallDown],
-	)
-} */
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}

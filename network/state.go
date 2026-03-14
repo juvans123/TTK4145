@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const RunStateBroadcastInterval = 300 * time.Millisecond
+const RunStateBroadcastInterval = 100 * time.Millisecond
 
 func RunStateBroadcast(
 	myID string,

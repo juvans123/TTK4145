@@ -138,14 +138,14 @@ mainLoop:
 			localOrderView[key] = info
 
 			// Konsensus kun for Unconfirmed -> Confirmed
-			fmt.Printf("[OM %s] QUORUM CHECK key=%+v phase=%v seenBy=%+v alive=%+v result=%v\n",
+			/* fmt.Printf("[OM %s] QUORUM CHECK key=%+v phase=%v seenBy=%+v alive=%+v result=%v\n",
 				myID,
 				key,
 				info.Phase,
 				info.SeenBy,
 				ws.Alive,
 				allAliveHaveSeen(info.SeenBy, ws.Alive),
-			)
+			) */
 			if info.Phase == Unconfirmed && !allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				continue mainLoop
 			}
