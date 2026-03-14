@@ -94,7 +94,7 @@ mainLoop:
 			 	if clearOrderInWorldState(&ws, key) {
 					changed = true
 				} 
-
+				changed = true
 				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					delete(localOrderView, key)
 				} */
@@ -137,7 +137,7 @@ mainLoop:
 				info.Phase = peerOrder.Phase
 				info.SeenBy = make(map[string]bool)
 			} else if peerOrder.Phase < info.Phase {
-				localOrderView[key] = info
+				//localOrderView[key] = info
 				continue mainLoop
 			}
 
@@ -161,13 +161,14 @@ mainLoop:
 				info.Phase = Confirmed
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
+				changed = true
 
 			case Confirmed:
 				// Recovery/rejoin: sørg for at WorldState er i sync
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
-				localOrderView[key] = info
+				//localOrderView[key] = info
 
 			case Served:
 				// Idempotent clear på alle noder
@@ -175,6 +176,7 @@ mainLoop:
 					changed = true
 				}
 				delete(localOrderView, key)
+				changed = true
 			}
 
 		case <-SendTicker.C:
