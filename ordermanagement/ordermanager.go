@@ -109,13 +109,6 @@ mainLoop:
 				changed = true
 			}
 
-			if pe.Alive {
-				for key, info := range localOrderView {
-					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
-						delete(localOrderView, key)
-					}
-				}
-			}
 
 			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
 
