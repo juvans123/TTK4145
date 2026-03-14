@@ -110,6 +110,14 @@ mainLoop:
 			}
 			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
 
+			if pe.Alive {
+				for key, info := range localOrderView {
+					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
+						delete(localOrderView, key)
+					}
+				}
+			}
+
 
 		case peerOrder := <-OrderInCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
@@ -179,8 +187,7 @@ mainLoop:
 				if info.Phase == NoOrder {
 					continue
 				}
-				fmt.Printf("[OM %s] TX ORDER key=%+v phase=%v seenBy=%+v\n",
-				myID, key, info.Phase, info.SeenBy)
+				//fmt.Printf("[OM %s] TX ORDER key=%+v phase=%v seenBy=%+v\n",myID, key, info.Phase, info.SeenBy)
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
@@ -225,7 +232,7 @@ func copySeenBy(src map[string]bool) map[string]bool {
 	return dst
 }
 
-func isConfirmedInWorldState(ws *WorldState, key OrderKey) bool {
+/* func isConfirmedInWorldState(ws *WorldState, key OrderKey) bool {
 	switch key.Button {
 	case config.BT_Cab:
 		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
@@ -236,7 +243,7 @@ func isConfirmedInWorldState(ws *WorldState, key OrderKey) bool {
 		return ws.ConfirmedHallOrders[key.Floor][key.Button]
 	}
 	return false
-}
+} */
 
 func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
 	for id, isAlive := range alive {
