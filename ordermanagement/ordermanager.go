@@ -95,9 +95,9 @@ mainLoop:
 					changed = true
 				} 
 
-				if key.Button == config.BT_Cab && key.OwnerID == myID {
+				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					delete(localOrderView, key)
-				}
+				} */
 			}
 
 		case st := <-localStateCh:
@@ -114,13 +114,13 @@ mainLoop:
 			}
 			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
 
-			/* if pe.Alive {
+			if pe.Alive {
 				for key, info := range localOrderView {
 					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
 						delete(localOrderView, key)
 					}
 				}
-			} */
+			} 
 
 
 		case peerOrder := <-OrderInCh:
@@ -149,15 +149,6 @@ mainLoop:
 			info.SeenBy[myID] = true
 			localOrderView[key] = info
 
-			// Konsensus kun for Unconfirmed -> Confirmed
-			/* fmt.Printf("[OM %s] QUORUM CHECK key=%+v phase=%v seenBy=%+v alive=%+v result=%v\n",
-				myID,
-				key,
-				info.Phase,
-				info.SeenBy,
-				ws.Alive,
-				allAliveHaveSeen(info.SeenBy, ws.Alive),
-			) */
 			if info.Phase == Unconfirmed && !allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				continue mainLoop
 			}
