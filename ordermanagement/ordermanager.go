@@ -91,9 +91,9 @@ mainLoop:
 				localOrderView[key] = info
 
 				// Clear worldstate lokalt (idempotent)
-			/* 	if clearOrderInWorldState(&ws, key) {
+			 	if clearOrderInWorldState(&ws, key) {
 					changed = true
-				} */
+				} 
 			}
 
 		case st := <-localStateCh:
@@ -108,6 +108,15 @@ mainLoop:
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 			}
+
+			if pe.Alive {
+				for key, info := range localOrderView {
+					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
+						delete(localOrderView, key)
+					}
+				}
+			}
+
 			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
 
 

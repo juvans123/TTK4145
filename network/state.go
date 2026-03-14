@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const RunStateBroadcastInterval = 300 * time.Millisecond
+const RunStateBroadcastInterval = 100 * time.Millisecond
 
 func RunStateBroadcast(
 	myID string,
@@ -42,7 +42,7 @@ func RunStateBroadcast(
 		case <-ticker.C:
 			counter++
 			last.Counter = counter
-			netTx <- last //Sender på hvert tick også 
+			netTx <- last //Sender på hvert tick også
 		}
 	}
 }
@@ -60,12 +60,12 @@ func RunStateReceive(
 		}
 
 		last, known := lastCounter[state.ID]
-		if known && !supervisor.IsNewer(state.Counter, last){
+		if known && !supervisor.IsNewer(state.Counter, last) {
 			continue //filtrer duplikat eller forsinket
 		}
 
 		lastCounter[state.ID] = state.Counter //known settes true indirekte her
-		
+
 		peerStateCh <- state
 	}
 }

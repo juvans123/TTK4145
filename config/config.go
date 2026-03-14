@@ -97,8 +97,8 @@ type NetworkConfig struct {
 
 func DefaultNetworkConfig() NetworkConfig {
     return NetworkConfig{
-        StatePort:     16570,
-        HallOrderPort: 16571,
-        HeartbeatPort: 15647,
+        StatePort:     15670,
+        HallOrderPort: 15671,
+        HeartbeatPort: 17747,
     }
 }
