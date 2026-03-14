@@ -103,13 +103,13 @@ mainLoop:
 			ws.States[pst.ID] = pst
 
 		case pe := <-peerEventCh:
-			fmt.Printf("[OM %s] peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
-
 			prev, exists := ws.Alive[pe.PeerID]
 			if !exists || prev != pe.Alive {
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 			}
+			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
+
 
 		case peerOrder := <-OrderInCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
@@ -118,6 +118,7 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
 			}
+			fmt.Printf("[OM %s] BEFORE MERGE key=%+v incomingPhase=%v localPhase=%v incomingSeenBy=%+v ws.Alive=%+v\n", myID, key, peerOrder.Phase, info.Phase, peerOrder.SeenBy, ws.Alive)
 
 			// Vanlig fase-sammenligning
 			if peerOrder.Phase > info.Phase {
@@ -137,6 +138,14 @@ mainLoop:
 			localOrderView[key] = info
 
 			// Konsensus kun for Unconfirmed -> Confirmed
+			fmt.Printf("[OM %s] QUORUM CHECK key=%+v phase=%v seenBy=%+v alive=%+v result=%v\n",
+				myID,
+				key,
+				info.Phase,
+				info.SeenBy,
+				ws.Alive,
+				allAliveHaveSeen(info.SeenBy, ws.Alive),
+			)
 			if info.Phase == Unconfirmed && !allAliveHaveSeen(info.SeenBy, ws.Alive) {
 				continue mainLoop
 			}
