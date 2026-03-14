@@ -45,7 +45,7 @@ mainLoop:
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
 
 			info := localOrderView[key]
-			if info.Phase != NoOrder {
+			if info.Phase == Unconfirmed || info.Phase == Confirmed{
 				continue mainLoop
 			}
 
@@ -95,6 +95,10 @@ mainLoop:
 					changed = true
 				} 
 				changed = true
+
+				if allAliveHaveSeen(info.SeenBy, ws.Alive){
+					delete(localOrderView, key)
+				}
 				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					delete(localOrderView, key)
 				} */
