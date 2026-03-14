@@ -118,7 +118,7 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
 			}
-			fmt.Printf("[OM %s] BEFORE MERGE key=%+v incomingPhase=%v localPhase=%v incomingSeenBy=%+v ws.Alive=%+v\n", myID, key, peerOrder.Phase, info.Phase, peerOrder.SeenBy, ws.Alive)
+			//fmt.Printf("[OM %s] BEFORE MERGE key=%+v incomingPhase=%v localPhase=%v incomingSeenBy=%+v ws.Alive=%+v\n", myID, key, peerOrder.Phase, info.Phase, peerOrder.SeenBy, ws.Alive)
 
 			// Vanlig fase-sammenligning
 			if peerOrder.Phase > info.Phase {
@@ -179,6 +179,8 @@ mainLoop:
 				if info.Phase == NoOrder {
 					continue
 				}
+				fmt.Printf("[OM %s] TX ORDER key=%+v phase=%v seenBy=%+v\n",
+				myID, key, info.Phase, info.SeenBy)
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,

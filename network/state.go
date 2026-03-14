@@ -5,6 +5,7 @@ import (
 	"heis/supervisor"
 	"log"
 	"time"
+	"fmt"
 )
 
 const RunStateBroadcastInterval = 100 * time.Millisecond
@@ -59,11 +60,15 @@ func RunStateReceive(
 			continue
 		}
 
-		last, known := lastCounter[state.ID]
+	/* 	last, known := lastCounter[state.ID]
 		if known && !supervisor.IsNewer(state.Counter, last){
+			fmt.Printf("[RunStateReceive %s] DROP from=%s counter=%d last=%d\n",
+		myID, state.ID, state.Counter, last)
 			continue //filtrer duplikat eller forsinket
 		}
-
+		fmt.Printf("[RunStateReceive %s] ACCEPT from=%s counter=%d last=%d known=%v cab=%v\n",
+	myID, state.ID, state.Counter, last, known, state.CabRequests)
+ */
 		lastCounter[state.ID] = state.Counter //known settes true indirekte her
 		
 		peerStateCh <- state
