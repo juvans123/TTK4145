@@ -83,7 +83,7 @@ type SupervisorConfig struct {
 func DefaultSupervisorConfig() SupervisorConfig {
 	return SupervisorConfig{
 		TickInterval:     100 * time.Millisecond,
-		SuspectThreshold: 15,
+		SuspectThreshold: 20,
 		ConsensusRequired: 2,
 	}
 }
@@ -97,8 +97,8 @@ type NetworkConfig struct {
 
 func DefaultNetworkConfig() NetworkConfig {
     return NetworkConfig{
-        StatePort:     16570,
-        HallOrderPort: 16571,
-        HeartbeatPort: 15647,
+        StatePort:     16970,
+        HallOrderPort: 16971,
+        HeartbeatPort: 15947,
     }
 }

@@ -6,7 +6,7 @@ import (
 	"heis/elevio"
 	om "heis/ordermanagement"
 	"time"
-	"fmt"
+	//"fmt"
 )
 
 type DoorTimer interface {
@@ -58,7 +58,7 @@ func Run(
 			!cabRequestsEqual(st.CabRequests, lastPublished.CabRequests) {
 			select {
 			case stateOutCh <- st:
-				fmt.Printf("[FSM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v\n", myID, st.Floor, st.Behaviour, st.Direction, st.CabRequests)
+				//fmt.Printf("[FSM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v\n", myID, st.Floor, st.Behaviour, st.Direction, st.CabRequests)
 				lastPublished = st
 			default:
 			}
