@@ -85,6 +85,10 @@ mainLoop:
 					continue
 				}
 
+				if info.SeenBy == nil {
+					info.SeenBy = make(map[string]bool)
+				}
+
 				// Sett til Served lokalt
 				info.Phase = Served
 				info.SeenBy = map[string]bool{myID: true}
@@ -292,12 +296,16 @@ func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
 			ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
 			changed = true
 		}
+		fmt.Printf("[CONFIRM CAB BEFORE] owner=%s floor=%d cab=%v\n",
+            key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
 
 	case config.BT_HallUp, config.BT_HallDown:
 		if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
 			ws.ConfirmedHallOrders[key.Floor][key.Button] = true
 			changed = true
 		}
+		fmt.Printf("[CONFIRM CAB AFTER ] owner=%s floor=%d cab=%v\n",
+		key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
 	}
 
 	return changed
@@ -309,10 +317,14 @@ func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
 	switch key.Button {
 	case config.BT_Cab:
 		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
+			fmt.Printf("[CLEAR CAB BEFORE] owner=%s floor=%d cab=%v\n",
+			key.OwnerID, key.Floor, cabs)
 			if cabs[key.Floor] {
 				cabs[key.Floor] = false
 				changed = true
 			}
+			fmt.Printf("[CLEAR CAB AFTER ] owner=%s floor=%d cab=%v\n",
+			key.OwnerID, key.Floor, cabs)
 		}
 
 	case config.BT_HallUp, config.BT_HallDown:
@@ -355,7 +367,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildCabOnlyOrders(ws, myID)
 	}
-	fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
+	//fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
 	myLocalOrders := NewOrders(config.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
@@ -402,8 +414,8 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
-		fmt.Printf("[OM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v obstructed=%v, immobilie=%v\n",
-				 state.ID, state.Floor, state.Behaviour, state.Direction, state.CabRequests, state.Obstructed, state.Immobile)
+		//fmt.Printf("[OM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v obstructed=%v, immobilie=%v\n",
+				//state.ID, state.Floor, state.Behaviour, state.Direction, state.CabRequests, state.Obstructed, state.Immobile)
 		if !ws.Alive[id] {
 			continue
 		}
