@@ -292,20 +292,21 @@ func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
 		if _, ok := ws.ConfirmedCabOrders[key.OwnerID]; !ok {
 			ws.ConfirmedCabOrders[key.OwnerID] = make([]bool, config.N_FLOORS)
 		}
+		fmt.Printf("[CONFIRM CAB BEFORE] owner=%s floor=%d cab=%v\n",
+            key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
+			
 		if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
 			ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
 			changed = true
 		}
-		fmt.Printf("[CONFIRM CAB BEFORE] owner=%s floor=%d cab=%v\n",
-            key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
+		fmt.Printf("[CONFIRM CAB AFTER ] owner=%s floor=%d cab=%v\n",
+		key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
 
 	case config.BT_HallUp, config.BT_HallDown:
 		if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
 			ws.ConfirmedHallOrders[key.Floor][key.Button] = true
 			changed = true
 		}
-		fmt.Printf("[CONFIRM CAB AFTER ] owner=%s floor=%d cab=%v\n",
-		key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
 	}
 
 	return changed
