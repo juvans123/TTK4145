@@ -297,6 +297,7 @@ func Run(
 
 func elevatorInit(e *Elevator) {
 	// Hvis vi allerede står i en etasje, bare initialiser state riktig
+	elevio.SetDoorOpenLamp(false)
 	if floor := elevio.GetFloor(); floor >= 0 {
 		e.Floor = floor
 		elevio.SetFloorIndicator(floor)
