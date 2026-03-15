@@ -379,6 +379,8 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
+		fmt.Printf("[OM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v obstructed=%v, immobilie=%v\n",
+				 state.ID, state.Floor, state.Behaviour, state.Direction, state.CabRequests, state.Obstructed, state.Immobile)
 		if !ws.Alive[id] {
 			continue
 		}

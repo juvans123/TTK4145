@@ -67,8 +67,6 @@ func Run(
 			!cabRequestsEqual(st.CabRequests, lastPublished.CabRequests) {
 			select {
 			case stateOutCh <- st:
-				fmt.Printf("[FSM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v obstructed=%v, immobilie=%v\n",
-				 myID, st.Floor, st.Behaviour, st.Direction, st.CabRequests, st.Obstructed, st.Immobile)
 				lastPublished = st
 			default:
 			}
