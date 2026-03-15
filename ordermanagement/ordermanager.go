@@ -118,7 +118,7 @@ mainLoop:
 		case st := <-localStateCh:
 			prev := ws.States[myID]
 			st.ID = myID
-			ws.States[yID] = st
+			ws.States[myID] = st
 		
 			if prev.Obstructed != st.Obstructed {
 				changed = true
