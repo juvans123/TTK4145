@@ -115,16 +115,15 @@ mainLoop:
 			}
 
 		case st := <-localStateCh:
-			ws.States[st.ID] = st
-
-		/* case pst := <-peerStateCh:
-			if pst.ID == "" || pst.ID == myID {
-				continue mainLoop
-			} 
-			if pst.Immobile{
+			prev := ws.States[myID]
+			st.ID = myID
+			ws.States[myID] = st
+		
+			if prev.Obstructed != st.Obstructed {
 				changed = true
 			}
-			ws.States[pst.ID] = pst */
+
+		
 		case pst := <-peerStateCh:
 			/* if pst.ID == "" || pst.ID == myID {
 				continue mainLoop
