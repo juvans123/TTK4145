@@ -219,7 +219,7 @@ mainLoop:
 				if info.Phase == NoOrder {
 					continue
 				}
-				if key.Button == config.BT_Cab && key.OwnerID == myID {
+				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					cabs, ok := ws.ConfirmedCabOrders[myID]
 					if !ok || !cabs[key.Floor] {
 						if info.Phase != Served {
@@ -227,7 +227,7 @@ mainLoop:
 							continue
 						}
 					}
-				}
+				} */
 				//fmt.Printf("[OM %s] TX ORDER key=%+v phase=%v seenBy=%+v\n",myID, key, info.Phase, info.SeenBy)
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
