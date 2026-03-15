@@ -381,7 +381,7 @@ func NewOrders(numFloors int) Orders {
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	fmt.Printf("[buildMyLocalOrders %s] before assigner ws.ConfirmedCabOrders[myID] = %v\n", myID, ws.ConfirmedCabOrders[myID])
-	inputAssigner := buildAssignerInput(ws)
+	inputAssigner := buildAssignerInput(myID, ws)
 	path := "./hall_request_assigner/hall_request_assigner"
 	//fmt.Printf("[buildMyLocalOrders %s] after assigner ws.States[myID].CabRequests = %v\n", myID, ws.States[myID].CabRequests)
 	//fmt.Printf("[buildMyLocalOrders %s] after assigner inputAssigner.States[myID] = %v\n", myID, inputAssigner.States[myID])
@@ -432,7 +432,7 @@ func buildCabOnlyOrders(ws *WorldState, myID string) Orders {
 	return cabOnlyOrders
 }
 
-func buildAssignerInput(ws *WorldState) AssignerInput {
+func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 	hallRequests := make([][]bool, config.N_FLOORS)
 	for floor := 0; floor < config.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
@@ -446,8 +446,10 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 		if !ws.Alive[id] {
 			continue
 		}
-		if state.Immobile || state.Obstructed {
-			continue
+		if id != myID{
+			if state.Immobile || state.Obstructed {
+				continue
+			}
 		}
 
 		confirmedCab, ok := ws.ConfirmedCabOrders[id]
