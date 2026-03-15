@@ -87,7 +87,7 @@ mainLoop:
 
 				if info.SeenBy == nil {
 					info.SeenBy = make(map[string]bool)
-				}
+				} 
 
 				// Sett til Served lokalt
 				info.Phase = Served
@@ -99,7 +99,9 @@ mainLoop:
 					changed = true
 				}  */
 				changed = true
-				clearOrderInWorldState(&ws, key)
+				if clearOrderInWorldState(&ws, key){
+					changed = true
+				}
 				if allAliveHaveSeen(info.SeenBy, ws.Alive){
 					delete(localOrderView, key)
 				} 
@@ -168,6 +170,7 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
 			}
+			prevPhase := info.Phase
 			//fmt.Printf("[OM %s] BEFORE MERGE key=%+v incomingPhase=%v localPhase=%v incomingSeenBy=%+v ws.Alive=%+v\n", myID, key, peerOrder.Phase, info.Phase, peerOrder.SeenBy, ws.Alive)
 
 			// Vanlig fase-sammenligning
@@ -210,16 +213,19 @@ mainLoop:
 
 			case Served:
 				// Idempotent clear på alle noder
-				if clearOrderInWorldState(&ws, key) {
-					changed = true
+				if prevPhase != Served{
+					if clearOrderInWorldState(&ws, key) {
+						changed = true
+					}
 				}
+	
 				/* delete(localOrderView, key)
 				changed = true */
 				localOrderView[key] = info
 				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 					delete(localOrderView, key)
 				}
-				changed = true
+				
 			}
 
 		case <-SendTicker.C:
