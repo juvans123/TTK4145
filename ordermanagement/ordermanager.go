@@ -100,15 +100,15 @@ mainLoop:
 				} 
 				changed = true
 
-				/* if allAliveHaveSeen(info.SeenBy, ws.Alive){
+				if allAliveHaveSeen(info.SeenBy, ws.Alive){
 					delete(localOrderView, key)
-				} */
-				if key.Button == config.BT_Cab && key.OwnerID == myID {
+				} 
+				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					delete(localOrderView, key)
 				} else if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 					delete(localOrderView, key)
 				}
-				
+				 */
 				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					delete(localOrderView, key)
 				} */
