@@ -202,13 +202,23 @@ func Run(
 				continue
 			}
 
-			closeDoorAndResetLamp(timer)
+			
 
 			travelDir, behavior, dir := chooseDirection(&e)
 			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
-			if e.Behavior == EB_Moving {
+			
+			
+			if shouldTakeOrdersAtFloor(&e) {
+				// Hvis det fortsatt er ordre i denne etasjen etter at døra har vært åpen, hold døra åpen og clear igjen
+				e.Behavior = EB_DoorOpen
+				timer.Reset(doorOpenDuration)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				continue
+			} else if e.Behavior == EB_Moving {
 				setMotor(e.Dir)
 			}
+
+			closeDoorAndResetLamp(timer)
 
 			publishIfChanged()
 
@@ -414,17 +424,17 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 		if hallUp {
 			ce.ClearHallUp = true
 		}
-		if hallDown && !om.OrdersAbove(orders, floor) {
+		/*if hallDown && !om.OrdersAbove(orders, floor) {
 			ce.ClearHallDown = true
-		}
+		}*/
 
 	case config.TD_Down:
 		if hallDown {
 			ce.ClearHallDown = true
 		}
-		if hallUp && !om.OrdersBelow(orders, floor) {
+		/*if hallUp && !om.OrdersBelow(orders, floor) {
 			ce.ClearHallUp = true
-		}
+		}*/
 
 	default:
 		ce.ClearHallUp = hallUp
