@@ -34,9 +34,10 @@ func Run(
 		TravelDir: config.TD_Down,
 		Behavior:  EB_Moving,
 		Orders:    om.NewOrders(4),
+		Obstructed: false,
+		Immobile: false,
 	}
 
-	obstructed := false
 	stopPressed := false
 	elevatorInit(&e)
 
@@ -45,16 +46,24 @@ func Run(
 	case stateOutCh <- lastPublished:
 	default:
 	}
-
-	period := 5000 * time.Millisecond
-	ticker := time.NewTicker(period)
-	defer ticker.Stop()
+	// --- NYTT: Immobility ---
+	immobileTimeout := 3 * time.Second
+	immobileTimer := time.NewTimer(immobileTimeout)
+	if !immobileTimer.Stop() {
+		select {
+		case <-immobileTimer.C:
+		default:
+		}
+	}
+	immobileTimerActive := false
 
 	publishIfChanged := func() {
 		st := PublicStateFromFSM(e, myID)
 		if st.Floor != lastPublished.Floor ||
 			st.Behaviour != lastPublished.Behaviour ||
 			st.Direction != lastPublished.Direction ||
+			st.Obstructed != lastPublished.Obstructed ||
+			st.Immobile != lastPublished.Immobile ||
 			!cabRequestsEqual(st.CabRequests, lastPublished.CabRequests) {
 			select {
 			case stateOutCh <- st:
@@ -147,7 +156,11 @@ func Run(
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 				if e.Behavior == EB_Moving {
+					e.Immobile = false
 					setMotor(e.Dir)
+					startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+				} else {
+					stopImmobileTimer(immobileTimer, &immobileTimerActive)
 				}
 				publishIfChanged()
 			}
@@ -156,12 +169,19 @@ func Run(
 		case floor := <-floorCh:
 			e.Floor = floor
 			elevio.SetFloorIndicator(floor)
+			e.Immobile = false
+			if e.Behavior == EB_Moving {
+				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+			} else {
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
+			}
 
 			if e.Behavior == EB_Moving && !stopPressed {
 				if shouldStop(&e) {
 					stopMotor()
 					e.Dir = elevio.MD_Stop
 					e.Behavior = EB_Idle
+					stopImmobileTimer(immobileTimer, &immobileTimerActive)
 					// fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
 					if om.HasOrderAtFloor(&e.Orders, e.Floor) {
 						e.Behavior = EB_DoorOpen
@@ -190,7 +210,7 @@ func Run(
 			if e.Behavior != EB_DoorOpen {
 				continue
 			}
-			if obstructed || stopPressed {
+			if e.Obstructed || stopPressed {
 				timer.Reset(doorOpenDuration)
 				continue
 			}
@@ -207,14 +227,19 @@ func Run(
 			travelDir, behavior, dir := chooseDirection(&e)
 			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 			if e.Behavior == EB_Moving {
+				e.Immobile = false
 				setMotor(e.Dir)
+				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+			} else {
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
 			}
 
 			publishIfChanged()
 
 		// -------- Obstruction --------
 		case obs := <-obstrCh:
-			obstructed = obs
+			e.Obstructed = obs
+			publishIfChanged()
 
 		// -------- Stop button --------
 		case sp := <-stopCh:
@@ -225,6 +250,8 @@ func Run(
 				stopMotor()
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
+				e.Immobile = false
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
 				floor := elevio.GetFloor()
 
 				if floor >= 0 {
@@ -238,37 +265,35 @@ func Run(
 				// Stopp sluppet: gå tilbake til normal drift
 				if e.Behavior == EB_DoorOpen {
 					timer.Reset(doorOpenDuration)
+					stopImmobileTimer(immobileTimer, &immobileTimerActive)
 				} else if e.Behavior == EB_Idle {
 
 					travelDir, behavior, dir := chooseDirection(&e)
 					e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 					if e.Behavior == EB_Moving {
+						e.Immobile = false
 						setMotor(e.Dir)
+						startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+					}else {
+						stopImmobileTimer(immobileTimer, &immobileTimerActive)
 					}
 				}
 			}
 			publishIfChanged()
-		case <-ticker.C:
-			//fmt.Println("Im Alive: %s", myID)
+
+		case <-immobileTimer.C:
+			immobileTimerActive = false
+			if e.Behavior == EB_Moving && !stopPressed {
+				e.Immobile = true
+				stopMotor()
+				e.Dir = elevio.MD_Stop
+				e.Behavior = EB_Idle
+				fmt.Printf("[FSM %s] IMMOBILITY detected at floor=%d\n", myID, e.Floor)
+				publishIfChanged()
+			}
 		}
 	}
 }
-
-/* func elevatorInit(e *Elevator) {
-	//updateButtonLights(e)
-	setMotor(elevio.MD_Down)
-	for {
-		floor := elevio.GetFloor()
-		if floor >= 0 {
-			stopMotor()
-			e.Floor = floor
-			elevio.SetFloorIndicator(floor)
-			e.Dir = elevio.MD_Stop
-			e.Behavior = EB_Idle
-			return
-		}
-	}
-} */
 
 func elevatorInit(e *Elevator) {
 	// Hvis vi allerede står i en etasje, bare initialiser state riktig
@@ -452,4 +477,29 @@ func cabRequestsEqual(a, b []bool) bool {
 		}
 	}
 	return true
+}
+
+func startImmobileTimer(timer *time.Timer, active *bool, timeout time.Duration) {
+	if *active {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}
+	timer.Reset(timeout)
+	*active = true
+}
+
+func stopImmobileTimer(timer *time.Timer, active *bool) {
+	if *active {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		*active = false
+	}
 }

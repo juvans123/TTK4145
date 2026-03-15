@@ -56,7 +56,11 @@ type ElevatorState struct {
     Floor       int       `json:"floor"`
     Direction   Direction `json:"direction"`
     CabRequests []bool    `json:"cabRequests"`
+    Obstructed bool
+    Immobile bool
 }
+
+
 
 /*
 type PeerUpdate struct {

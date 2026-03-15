@@ -197,6 +197,7 @@ mainLoop:
 					SeenBy:  copySeenBy(info.SeenBy),
 				}
 			}
+			
 		}
 
 		if changed {
@@ -379,6 +380,9 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
 		if !ws.Alive[id] {
+			continue
+		}
+		if state.Immobile || state.Obstructed {
 			continue
 		}
 
