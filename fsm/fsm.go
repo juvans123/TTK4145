@@ -125,6 +125,7 @@ func Run(
 			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&prevOrders, e.Floor)
 		
 			e.Orders = newOrders
+			fmt.Printf("[FSM %s] orders snapshot cab=%v\n", myID, e.Orders.Cab)
 		
 			if stopPressed {
 				publishIfChanged()
