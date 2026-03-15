@@ -156,7 +156,7 @@ func Run(
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 				if e.Behavior == EB_Moving {
-					//e.Immobile = false
+					e.Immobile = false
 					fmt.Print("er i newOrders idle")
 					setMotor(e.Dir)
 					startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
