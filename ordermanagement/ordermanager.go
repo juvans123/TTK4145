@@ -352,7 +352,7 @@ func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
 				changed = true
 			}
 			//fmt.Printf("[CLEAR CAB AFTER ] owner=%s floor=%d cab=%v\n",
-			key.OwnerID, key.Floor, cabs)
+			//key.OwnerID, key.Floor, cabs)
 		}
 
 	case config.BT_HallUp, config.BT_HallDown:
