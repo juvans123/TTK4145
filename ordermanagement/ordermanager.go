@@ -95,12 +95,13 @@ mainLoop:
 				localOrderView[key] = info
 
 				// Clear worldstate lokalt (idempotent)
-			 	if clearOrderInWorldState(&ws, key) {
+			 	/* if clearOrderInWorldState(&ws, key) {
 					changed = true
-				} 
+				}  */
 				changed = true
 
 				if allAliveHaveSeen(info.SeenBy, ws.Alive){
+					clearOrderInWorldState(&ws, key)
 					delete(localOrderView, key)
 				} 
 				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
@@ -117,7 +118,7 @@ mainLoop:
 		case st := <-localStateCh:
 			prev := ws.States[myID]
 			st.ID = myID
-			ws.States[myID] = st
+			ws.States[yID] = st
 		
 			if prev.Obstructed != st.Obstructed {
 				changed = true
