@@ -2,11 +2,11 @@ package fsm
 
 import (
 	//"fmt"
+	"fmt"
 	"heis/config"
 	"heis/elevio"
 	om "heis/ordermanagement"
 	"time"
-	"fmt"
 )
 
 type DoorTimer interface {
@@ -70,61 +70,61 @@ func Run(
 
 		// -------- Orders snapshot fra OM --------
 		/* case newOrders := <-omOrdersCh:
-			//fmt.Printf("orders:, %v\n", newOrders)
-			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
-			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
-			e.Orders = newOrders
-			//updateButtonLights(&e)
-			if stopPressed {
-				publishIfChanged()
-				continue
+		//fmt.Printf("orders:, %v\n", newOrders)
+		//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
+		//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
+		e.Orders = newOrders
+		//updateButtonLights(&e)
+		if stopPressed {
+			publishIfChanged()
+			continue
+		}
+
+		// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
+		if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
+			timer.Reset(doorOpenDuration)
+			fmt.Printf("reset dør")
+			ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+			// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+			clearCh <- ce
+			continue
+		}
+
+		// Hvis idle i etasje og har ordre her: åpne
+		if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+			e.Behavior = EB_DoorOpen
+			openDoorAndSetLamp(timer)
+			//clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+
+			ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+			// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+			clearCh <- ce
+			publishIfChanged()
+			continue
+		}
+
+		if e.Behavior == EB_Idle {
+			travelDir, behavior, dir := chooseDirection(&e)
+			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
+			if e.Behavior == EB_Moving {
+				setMotor(e.Dir)
 			}
-
-			// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
-			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
-				timer.Reset(doorOpenDuration)
-				fmt.Printf("reset dør")
-				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-				// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
-				clearCh <- ce
-				continue
-			}
-
-			// Hvis idle i etasje og har ordre her: åpne
-			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
-				e.Behavior = EB_DoorOpen
-				openDoorAndSetLamp(timer)
-				//clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-
-				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-				// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
-				clearCh <- ce
-				publishIfChanged()
-				continue
-			}
-
-			if e.Behavior == EB_Idle {
-				travelDir, behavior, dir := chooseDirection(&e)
-				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
-				if e.Behavior == EB_Moving {
-					setMotor(e.Dir)
-				}
-				publishIfChanged()
-			} */
+			publishIfChanged()
+		} */
 
 		case newOrders := <-omOrdersCh:
 			prevOrders := e.Orders
 			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&prevOrders, e.Floor)
-		
+
 			e.Orders = newOrders
-		
+
 			if stopPressed {
 				publishIfChanged()
 				continue
 			}
-		
+
 			nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
-		
+
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if nowAtFloor && !prevAtFloor {
 					timer.Reset(doorOpenDuration)
@@ -134,15 +134,29 @@ func Run(
 				publishIfChanged()
 				continue
 			}
-		
-			if e.Behavior == EB_Idle && e.Floor >= 0 && nowAtFloor {
+
+			if e.Behavior == EB_Idle && shouldTakeOrdersAtFloor(&e) {
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				publishIfChanged()
 				continue
 			}
-		
+
+			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+				// Idle at floor with only opposite hall call: flip service direction so we can serve it.
+				if !shouldTakeOrdersAtFloor(&e) && hasOppositeHallOrderAtFloor(&e) {
+					e.TravelDir = oppositeTravelDirection(e.TravelDir)
+				}
+				if shouldTakeOrdersAtFloor(&e) {
+					e.Behavior = EB_DoorOpen
+					openDoorAndSetLamp(timer)
+					clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+					publishIfChanged()
+					continue
+				}
+			}
+
 			if e.Behavior == EB_Idle {
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
@@ -202,23 +216,23 @@ func Run(
 				continue
 			}
 
-			
-
-			travelDir, behavior, dir := chooseDirection(&e)
-			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
-			
-			
-			if shouldTakeOrdersAtFloor(&e) {
-				// Hvis det fortsatt er ordre i denne etasjen etter at døra har vært åpen, hold døra åpen og clear igjen
-				e.Behavior = EB_DoorOpen
-				timer.Reset(doorOpenDuration)
+			// Two-step clearing: if we are done in current travel direction at this floor,
+			// flip direction and clear opposite hall call in a new door interval.
+			if !hasOrdersInTravelDirection(&e) && hasOppositeHallOrderAtFloor(&e) {
+				e.TravelDir = oppositeTravelDirection(e.TravelDir)
+				openDoorAndSetLamp(timer)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				publishIfChanged()
 				continue
-			} else if e.Behavior == EB_Moving {
-				setMotor(e.Dir)
 			}
 
 			closeDoorAndResetLamp(timer)
+
+			travelDir, behavior, dir := chooseDirection(&e)
+			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
+			if e.Behavior == EB_Moving {
+				setMotor(e.Dir)
+			}
 
 			publishIfChanged()
 
@@ -419,22 +433,27 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 
 	ce.ClearCab = orders.Cab[floor]
 
+	// At end floors there is only one valid hall direction; clear it immediately
+	// together with cab, regardless of current travel direction.
+	if floor == 0 {
+		ce.ClearHallUp = hallUp
+		return ce
+	}
+	if floor == config.N_FLOORS-1 {
+		ce.ClearHallDown = hallDown
+		return ce
+	}
+
 	switch dir {
 	case config.TD_Up:
 		if hallUp {
 			ce.ClearHallUp = true
 		}
-		/*if hallDown && !om.OrdersAbove(orders, floor) {
-			ce.ClearHallDown = true
-		}*/
 
 	case config.TD_Down:
 		if hallDown {
 			ce.ClearHallDown = true
 		}
-		/*if hallUp && !om.OrdersBelow(orders, floor) {
-			ce.ClearHallUp = true
-		}*/
 
 	default:
 		ce.ClearHallUp = hallUp
@@ -450,6 +469,33 @@ func shouldTakeOrdersAtFloor(e *Elevator) bool {
 	}
 	ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 	return ce.ClearCab || ce.ClearHallUp || ce.ClearHallDown
+}
+
+func oppositeTravelDirection(dir config.TravelDirection) config.TravelDirection {
+	if dir == config.TD_Up {
+		return config.TD_Down
+	}
+	return config.TD_Up
+}
+
+func hasOrdersInTravelDirection(e *Elevator) bool {
+	if e.Floor < 0 {
+		return false
+	}
+	if e.TravelDir == config.TD_Up {
+		return om.OrdersAbove(&e.Orders, e.Floor)
+	}
+	return om.OrdersBelow(&e.Orders, e.Floor)
+}
+
+func hasOppositeHallOrderAtFloor(e *Elevator) bool {
+	if e.Floor < 0 || e.Floor >= len(e.Orders.Hall) {
+		return false
+	}
+	if e.TravelDir == config.TD_Up {
+		return e.Orders.Hall[e.Floor][config.BT_HallDown]
+	}
+	return e.Orders.Hall[e.Floor][config.BT_HallUp]
 }
 
 func cabRequestsEqual(a, b []bool) bool {
