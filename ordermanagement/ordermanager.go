@@ -321,15 +321,13 @@ func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
 		if _, ok := ws.ConfirmedCabOrders[key.OwnerID]; !ok {
 			ws.ConfirmedCabOrders[key.OwnerID] = make([]bool, config.N_FLOORS)
 		}
-		fmt.Printf("[CONFIRM CAB BEFORE] owner=%s floor=%d cab=%v\n",
-            key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
+		//fmt.Printf("[CONFIRM CAB BEFORE] owner=%s floor=%d cab=%v\n", key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
 
 		if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
 			ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
 			changed = true
 		}
-		fmt.Printf("[CONFIRM CAB AFTER ] owner=%s floor=%d cab=%v\n",
-		key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
+		//fmt.Printf("[CONFIRM CAB AFTER ] owner=%s floor=%d cab=%v\n",key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
 
 	case config.BT_HallUp, config.BT_HallDown:
 		if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
@@ -385,8 +383,8 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	fmt.Printf("[buildMyLocalOrders %s] before assigner ws.ConfirmedCabOrders[myID] = %v\n", myID, ws.ConfirmedCabOrders[myID])
 	inputAssigner := buildAssignerInput(ws)
 	path := "./hall_request_assigner/hall_request_assigner"
-	fmt.Printf("[buildMyLocalOrders %s] after assigner ws.States[myID].CabRequests = %v\n", myID, ws.States[myID].CabRequests)
-	fmt.Printf("[buildMyLocalOrders %s] after assigner inputAssigner.States[myID] = %v\n", myID, inputAssigner.States[myID])
+	//fmt.Printf("[buildMyLocalOrders %s] after assigner ws.States[myID].CabRequests = %v\n", myID, ws.States[myID].CabRequests)
+	//fmt.Printf("[buildMyLocalOrders %s] after assigner inputAssigner.States[myID] = %v\n", myID, inputAssigner.States[myID])
 	assignments, err := CallAssigner(path, inputAssigner)
 	if err != nil {
 		fmt.Printf("Assigner error: %v\n", err)
