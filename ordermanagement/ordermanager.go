@@ -345,13 +345,13 @@ func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
 	switch key.Button {
 	case config.BT_Cab:
 		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
-			fmt.Printf("[CLEAR CAB BEFORE] owner=%s floor=%d cab=%v\n",
-			key.OwnerID, key.Floor, cabs)
+			//fmt.Printf("[CLEAR CAB BEFORE] owner=%s floor=%d cab=%v\n",
+			//key.OwnerID, key.Floor, cabs)
 			if cabs[key.Floor] {
 				cabs[key.Floor] = false
 				changed = true
 			}
-			fmt.Printf("[CLEAR CAB AFTER ] owner=%s floor=%d cab=%v\n",
+			//fmt.Printf("[CLEAR CAB AFTER ] owner=%s floor=%d cab=%v\n",
 			key.OwnerID, key.Floor, cabs)
 		}
 
@@ -442,8 +442,7 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
-		//fmt.Printf("[OM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v obstructed=%v, immobilie=%v\n",
-				//state.ID, state.Floor, state.Behaviour, state.Direction, state.CabRequests, state.Obstructed, state.Immobile)
+		fmt.Printf("[OM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v obstructed=%v, immobilie=%v\n", state.ID, state.Floor, state.Behaviour, state.Direction, state.CabRequests, state.Obstructed, state.Immobile)
 		if !ws.Alive[id] {
 			continue
 		}
