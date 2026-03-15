@@ -107,8 +107,29 @@ mainLoop:
 		case st := <-localStateCh:
 			ws.States[st.ID] = st
 
+		/* case pst := <-peerStateCh:
+			if pst.ID == "" || pst.ID == myID {
+				continue mainLoop
+			} 
+			if pst.Immobile{
+				changed = true
+			}
+			ws.States[pst.ID] = pst */
 		case pst := <-peerStateCh:
+			/* if pst.ID == "" || pst.ID == myID {
+				continue mainLoop
+			} */
+		
+			prev := ws.States[pst.ID]
 			ws.States[pst.ID] = pst
+		
+			if prev.Floor != pst.Floor ||
+				prev.Direction != pst.Direction ||
+				prev.Behaviour != pst.Behaviour ||
+				prev.Obstructed != pst.Obstructed ||
+				prev.Immobile != pst.Immobile {
+				changed = true
+			}
 
 		case pe := <-peerEventCh:
 			prev, exists := ws.Alive[pe.PeerID]
