@@ -340,11 +340,10 @@ func NewOrders(numFloors int) Orders {
 }
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
-	fmt.Printf("[buildMyLocalOrders %s] before assigner ws.States[myID].CabRequests = %v\n", myID, ws.States[myID].CabRequests)
 	fmt.Printf("[buildMyLocalOrders %s] before assigner ws.ConfirmedCabOrders[myID] = %v\n", myID, ws.ConfirmedCabOrders[myID])
 	inputAssigner := buildAssignerInput(ws)
 	path := "./hall_request_assigner/hall_request_assigner"
-
+	fmt.Printf("[buildMyLocalOrders %s] after assigner ws.States[myID].CabRequests = %v\n", myID, ws.States[myID].CabRequests)
 	assignments, err := CallAssigner(path, inputAssigner)
 	if err != nil {
 		fmt.Printf("Assigner error: %v\n", err)
