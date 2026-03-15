@@ -100,9 +100,15 @@ mainLoop:
 				} 
 				changed = true
 
-				if allAliveHaveSeen(info.SeenBy, ws.Alive){
+				/* if allAliveHaveSeen(info.SeenBy, ws.Alive){
+					delete(localOrderView, key)
+				} */
+				if key.Button == config.BT_Cab && key.OwnerID == myID {
+					delete(localOrderView, key)
+				} else if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 					delete(localOrderView, key)
 				}
+				
 				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					delete(localOrderView, key)
 				} */
@@ -213,6 +219,15 @@ mainLoop:
 				if info.Phase == NoOrder {
 					continue
 				}
+				if key.Button == config.BT_Cab && key.OwnerID == myID {
+					cabs, ok := ws.ConfirmedCabOrders[myID]
+					if !ok || !cabs[key.Floor] {
+						if info.Phase != Served {
+							delete(localOrderView, key)
+							continue
+						}
+					}
+				}
 				//fmt.Printf("[OM %s] TX ORDER key=%+v phase=%v seenBy=%+v\n",myID, key, info.Phase, info.SeenBy)
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
@@ -294,7 +309,7 @@ func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
 		}
 		fmt.Printf("[CONFIRM CAB BEFORE] owner=%s floor=%d cab=%v\n",
             key.OwnerID, key.Floor, ws.ConfirmedCabOrders[key.OwnerID])
-			
+
 		if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
 			ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
 			changed = true
