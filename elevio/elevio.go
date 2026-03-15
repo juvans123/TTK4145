@@ -52,6 +52,7 @@ func PollButtons(receiver chan<- config.ButtonEvent) {
 			for b := config.ButtonType(0); b < 3; b++ {
 				v := GetButton(b, f)
 				if v != prev[f][b] && v != false {
+					fmt.Printf("Knappetrykk - Floor:%v, Button: %v", f, b)
 					receiver <- config.ButtonEvent{Floor: f, Button: b}
 				}
 				prev[f][b] = v
