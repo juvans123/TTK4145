@@ -224,7 +224,7 @@ mainLoop:
 		if changed {
 			setButtonLight <- buildLightState(&ws, myID)
 			orders := buildMyLocalOrders(&ws, myID)
-			fmt.Printf("[OM %s] ordersOut cab%v hall=%v\n", myID, orders.Cab, orders.Hall)
+			//fmt.Printf("[OM %s] ordersOut cab%v hall=%v\n", myID, orders.Cab, orders.Hall)
 			ordersOutCh <- orders
 		}
 	}
@@ -340,6 +340,8 @@ func NewOrders(numFloors int) Orders {
 }
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
+	fmt.Printf("[buildMyLocalOrders %s] before assigner ws.States[myID].CabRequests = %v\n", myID, ws.States[myID].CabRequests)
+	fmt.Printf("[buildMyLocalOrders %s] before assigner ws.ConfirmedCabOrders[myID] = %v\n", myID, ws.ConfirmedCabOrders[myID])
 	inputAssigner := buildAssignerInput(ws)
 	path := "./hall_request_assigner/hall_request_assigner"
 
@@ -367,7 +369,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 		myLocalOrders.Hall[floor][config.BT_HallUp] = myAssignedHall[floor][config.BT_HallUp]
 		myLocalOrders.Hall[floor][config.BT_HallDown] = myAssignedHall[floor][config.BT_HallDown]
 	}
-
+	fmt.Printf("[buildMyLocalOrders %s] after assigner myLocalOrders.Cab = %v\n", myID, myLocalOrders.Cab)
 	return myLocalOrders
 }
 
