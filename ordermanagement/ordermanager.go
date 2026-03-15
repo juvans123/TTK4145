@@ -99,9 +99,8 @@ mainLoop:
 					changed = true
 				}  */
 				changed = true
-
+				clearOrderInWorldState(&ws, key)
 				if allAliveHaveSeen(info.SeenBy, ws.Alive){
-					clearOrderInWorldState(&ws, key)
 					delete(localOrderView, key)
 				} 
 				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
@@ -120,7 +119,11 @@ mainLoop:
 			st.ID = myID
 			ws.States[myID] = st
 		
-			if prev.Obstructed != st.Obstructed {
+			if prev.Floor != st.Floor ||
+				prev.Direction != st.Direction ||
+				prev.Behaviour != st.Behaviour ||
+				prev.Obstructed != st.Obstructed ||
+				prev.Immobile != st.Immobile {
 				changed = true
 			}
 
@@ -149,13 +152,13 @@ mainLoop:
 			}
 			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
 
-			if pe.Alive {
+			/* if pe.Alive {
 				for key, info := range localOrderView {
 					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
 						delete(localOrderView, key)
 					}
 				}
-			} 
+			}  */
 
 
 		case peerOrder := <-OrderInCh:
@@ -210,7 +213,12 @@ mainLoop:
 				if clearOrderInWorldState(&ws, key) {
 					changed = true
 				}
-				delete(localOrderView, key)
+				/* delete(localOrderView, key)
+				changed = true */
+				localOrderView[key] = info
+				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+					delete(localOrderView, key)
+				}
 				changed = true
 			}
 
