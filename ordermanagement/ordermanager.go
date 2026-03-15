@@ -344,6 +344,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	inputAssigner := buildAssignerInput(ws)
 	path := "./hall_request_assigner/hall_request_assigner"
 	fmt.Printf("[buildMyLocalOrders %s] after assigner ws.States[myID].CabRequests = %v\n", myID, ws.States[myID].CabRequests)
+	fmt.Printf("[buildMyLocalOrders %s] after assigner inputAssigner.States[myID] = %v\n", myID, inputAssigner.States[myID])
 	assignments, err := CallAssigner(path, inputAssigner)
 	if err != nil {
 		fmt.Printf("Assigner error: %v\n", err)
