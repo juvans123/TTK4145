@@ -447,6 +447,7 @@ func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 			continue
 		}
 		if id != myID{
+			fmt.Printf("id: %v, immobile: %v", id, state.Immobile)
 			if state.Immobile || state.Obstructed {
 				continue
 			}
