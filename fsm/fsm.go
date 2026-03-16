@@ -215,6 +215,7 @@ func Run(
 
 			if e.Immobile && !e.Obstructed{
 				e.Immobile = false
+				e.Behavior = EB_Moving
 			}
 
 			if e.Behavior == EB_Moving {
