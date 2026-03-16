@@ -2,11 +2,11 @@ package fsm
 
 import (
 	//"fmt"
+	"fmt"
 	"heis/config"
 	"heis/elevio"
 	om "heis/ordermanagement"
 	"time"
-	"fmt"
 )
 
 type DoorTimer interface {
@@ -16,6 +16,9 @@ type DoorTimer interface {
 }
 
 const doorOpenDuration = 3 * time.Second
+
+// NYTT
+const obstructionImmobileTimeout = 5 * time.Second
 
 func Run(
 	myID string,
@@ -29,14 +32,15 @@ func Run(
 	setButtonLight <-chan config.LightState,
 ) {
 	e := Elevator{
-		Floor:     -1,
-		Dir:       elevio.MD_Down,
-		TravelDir: config.TD_Down,
-		Behavior:  EB_Moving,
-		Orders:    om.NewOrders(4),
+		Floor:      -1,
+		Dir:        elevio.MD_Down,
+		TravelDir:  config.TD_Down,
+		Behavior:   EB_Moving,
+		Orders:     om.NewOrders(4),
+		Obstructed: false,
+		Immobile:   false,
 	}
 
-	obstructed := false
 	stopPressed := false
 	elevatorInit(&e)
 
@@ -46,15 +50,24 @@ func Run(
 	default:
 	}
 
-	period := 5000 * time.Millisecond
-	ticker := time.NewTicker(period)
-	defer ticker.Stop()
+	immobileTimeout := 3 * time.Second
+	immobileTimer := time.NewTimer(immobileTimeout)
+	if !immobileTimer.Stop() {
+		select {
+		case <-immobileTimer.C:
+		default:
+		}
+
+	}
+	immobileTimerActive := false
 
 	publishIfChanged := func() {
 		st := PublicStateFromFSM(e, myID)
 		if st.Floor != lastPublished.Floor ||
 			st.Behaviour != lastPublished.Behaviour ||
 			st.Direction != lastPublished.Direction ||
+			st.Obstructed != lastPublished.Obstructed ||
+			st.Immobile != lastPublished.Immobile ||
 			!cabRequestsEqual(st.CabRequests, lastPublished.CabRequests) {
 			select {
 			case stateOutCh <- st:
@@ -70,61 +83,61 @@ func Run(
 
 		// -------- Orders snapshot fra OM --------
 		/* case newOrders := <-omOrdersCh:
-			//fmt.Printf("orders:, %v\n", newOrders)
-			//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
-			//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
-			e.Orders = newOrders
-			//updateButtonLights(&e)
-			if stopPressed {
-				publishIfChanged()
-				continue
+		//fmt.Printf("orders:, %v\n", newOrders)
+		//prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
+		//prevAtFloor unngår spam når om SENDER OPPDATERINGER OFTERE ENN vi trykker, fiks denne når det blir relevant
+		e.Orders = newOrders
+		//updateButtonLights(&e)
+		if stopPressed {
+			publishIfChanged()
+			continue
+		}
+
+		// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
+		if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
+			timer.Reset(doorOpenDuration)
+			fmt.Printf("reset dør")
+			ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+			// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+			clearCh <- ce
+			continue
+		}
+
+		// Hvis idle i etasje og har ordre her: åpne
+		if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+			e.Behavior = EB_DoorOpen
+			openDoorAndSetLamp(timer)
+			//clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+
+			ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+			// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
+			clearCh <- ce
+			publishIfChanged()
+			continue
+		}
+
+		if e.Behavior == EB_Idle {
+			travelDir, behavior, dir := chooseDirection(&e)
+			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
+			if e.Behavior == EB_Moving {
+				setMotor(e.Dir)
 			}
-
-			// Hvis døra er åpen og vi fikk ny ordre i samme etasje: hold døra åpen og clear
-			if e.Behavior == EB_DoorOpen && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) { //sett in prevAtFloor
-				timer.Reset(doorOpenDuration)
-				fmt.Printf("reset dør")
-				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-				// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
-				clearCh <- ce
-				continue
-			}
-
-			// Hvis idle i etasje og har ordre her: åpne
-			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
-				e.Behavior = EB_DoorOpen
-				openDoorAndSetLamp(timer)
-				//clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-
-				ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-				// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
-				clearCh <- ce
-				publishIfChanged()
-				continue
-			}
-
-			if e.Behavior == EB_Idle {
-				travelDir, behavior, dir := chooseDirection(&e)
-				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
-				if e.Behavior == EB_Moving {
-					setMotor(e.Dir)
-				}
-				publishIfChanged()
-			} */
+			publishIfChanged()
+		} */
 
 		case newOrders := <-omOrdersCh:
 			prevOrders := e.Orders
 			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&prevOrders, e.Floor)
-		
+
 			e.Orders = newOrders
-		
+
 			if stopPressed {
 				publishIfChanged()
 				continue
 			}
-		
+
 			nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
-		
+
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if nowAtFloor && !prevAtFloor {
 					timer.Reset(doorOpenDuration)
@@ -134,7 +147,7 @@ func Run(
 				publishIfChanged()
 				continue
 			}
-		
+
 			if e.Behavior == EB_Idle && e.Floor >= 0 && nowAtFloor {
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
@@ -142,7 +155,7 @@ func Run(
 				publishIfChanged()
 				continue
 			}
-		
+
 			if e.Behavior == EB_Idle {
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
@@ -190,7 +203,7 @@ func Run(
 			if e.Behavior != EB_DoorOpen {
 				continue
 			}
-			if obstructed || stopPressed {
+			if e.Obstructed || stopPressed {
 				timer.Reset(doorOpenDuration)
 				continue
 			}
@@ -214,7 +227,18 @@ func Run(
 
 		// -------- Obstruction --------
 		case obs := <-obstrCh:
-			obstructed = obs
+			e.Obstructed = obs
+			if obs {
+				startImmobileTimer(immobileTimer, &immobileTimerActive, obstructionImmobileTimeout)
+			} else {
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
+				e.Immobile = false
+				if e.Behavior == EB_DoorOpen {
+					timer.Reset(doorOpenDuration)
+				}
+			}
+
+			publishIfChanged()
 
 		// -------- Stop button --------
 		case sp := <-stopCh:
@@ -248,8 +272,22 @@ func Run(
 				}
 			}
 			publishIfChanged()
-		case <-ticker.C:
-			//fmt.Println("Im Alive: %s", myID)
+		case <-immobileTimer.C:
+			immobileTimerActive = false
+			if e.Behavior == EB_Moving && !stopPressed {
+				e.Immobile = true
+				stopMotor()
+				e.Dir = elevio.MD_Stop
+				e.Behavior = EB_Idle
+				publishIfChanged()
+			}
+			if e.Obstructed && !stopPressed {
+				e.Immobile = true
+				stopMotor()
+				e.Dir = elevio.MD_Stop
+				e.Behavior = EB_DoorOpen
+				publishIfChanged()
+			}
 		}
 	}
 }
@@ -452,4 +490,31 @@ func cabRequestsEqual(a, b []bool) bool {
 		}
 	}
 	return true
+}
+
+func startImmobileTimer(timer *time.Timer, active *bool, timeOut time.Duration) {
+	if *active {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}
+
+	timer.Reset(timeOut)
+	*active = true
+}
+
+func stopImmobileTimer(timer *time.Timer, active *bool) {
+	if *active {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}
+
+	*active = false
 }
