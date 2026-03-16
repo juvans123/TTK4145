@@ -18,7 +18,7 @@ type DoorTimer interface {
 const doorOpenDuration = 3 * time.Second
 
 // NYTT
-const obstructionImmobileTimeout = 3 * time.Second
+const obstructionImmobileTimeout = 5 * time.Second
 
 func Run(
 	myID string,
@@ -50,7 +50,7 @@ func Run(
 	default:
 	}
 
-	immobileTimeout := 5 * time.Second
+	immobileTimeout := 3 * time.Second
 	immobileTimer := time.NewTimer(immobileTimeout)
 	if !immobileTimer.Stop() {
 		select {
