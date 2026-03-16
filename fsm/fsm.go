@@ -50,7 +50,7 @@ func Run(
 	default:
 	}
 
-	immobileTimeout := 3 * time.Second
+	immobileTimeout := 5 * time.Second
 	immobileTimer := time.NewTimer(immobileTimeout)
 	if !immobileTimer.Stop() {
 		select {
