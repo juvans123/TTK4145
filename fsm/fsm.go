@@ -215,7 +215,7 @@ func Run(
 					e.Dir = elevio.MD_Stop
 					e.Behavior = EB_Idle
 					// fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
-					if shouldTakeOrdersAtFloor(&e) {
+					if om.HasOrderAtFloor(&e.Orders, e.Floor) {
 						e.Behavior = EB_DoorOpen
 						openDoorAndSetLamp(timer)
 						ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
@@ -523,16 +523,16 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 	case config.TD_Up:
 		if hallUp {
 			ce.ClearHallUp = true
-		}else if hallDown && !om.OrdersAbove(orders, floor) {
+		}/*else if hallDown && !om.OrdersAbove(orders, floor) {
 			ce.ClearHallDown = true
-		}
+		}*/
 
 	case config.TD_Down:
 		if hallDown {
 			ce.ClearHallDown = true
-		}else if hallUp && !om.OrdersBelow(orders, floor) {
+		}/*else if hallUp && !om.OrdersBelow(orders, floor) {
 			ce.ClearHallUp = true
-		}
+		}*/
 
 	default:
 		ce.ClearHallUp = hallUp
