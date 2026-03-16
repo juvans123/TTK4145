@@ -159,12 +159,26 @@ func Run(
 				continue
 			}
 
-			if e.Behavior == EB_Idle && e.Floor >= 0 && nowAtFloor {
+			if e.Behavior == EB_Idle && shouldTakeOrdersAtFloor(&e) {
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				publishIfChanged()
 				continue
+			}
+
+			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+				// Idle at floor with only opposite hall call: flip service direction so we can serve it.
+				if !shouldTakeOrdersAtFloor(&e) && hasOppositeHallOrderAtFloor(&e) {
+					e.TravelDir = oppositeTravelDirection(e.TravelDir)
+				}
+				if shouldTakeOrdersAtFloor(&e) {
+					e.Behavior = EB_DoorOpen
+					openDoorAndSetLamp(timer)
+					clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+					publishIfChanged()
+					continue
+				}
 			}
 
 			if e.Behavior == EB_Idle {
@@ -237,6 +251,16 @@ func Run(
 			if shouldTakeOrdersAtFloor(&e) {
 				timer.Reset(doorOpenDuration)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				continue
+			}
+
+			// Two-step clearing: if we are done in current travel direction at this floor,
+			// flip direction and clear opposite hall call in a new door interval.
+			if !hasOrdersInTravelDirection(&e) && hasOppositeHallOrderAtFloor(&e) {
+				e.TravelDir = oppositeTravelDirection(e.TravelDir)
+				openDoorAndSetLamp(timer)
+				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+				publishIfChanged()
 				continue
 			}
 
@@ -340,6 +364,7 @@ func Run(
 
 func elevatorInit(e *Elevator) {
 	// Hvis vi allerede står i en etasje, bare initialiser state riktig
+	elevio.SetDoorOpenLamp(false)
 	if floor := elevio.GetFloor(); floor >= 0 {
 		e.Floor = floor
 		elevio.SetFloorIndicator(floor)
@@ -477,21 +502,26 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 
 	ce.ClearCab = orders.Cab[floor]
 
+	// At end floors there is only one valid hall direction; clear it immediately
+	// together with cab, regardless of current travel direction.
+	if floor == 0 {
+		ce.ClearHallUp = hallUp
+		return ce
+	}
+	if floor == config.N_FLOORS-1 {
+		ce.ClearHallDown = hallDown
+		return ce
+	}
+
 	switch dir {
 	case config.TD_Up:
 		if hallUp {
 			ce.ClearHallUp = true
 		}
-		if hallDown && !om.OrdersAbove(orders, floor) {
-			ce.ClearHallDown = true
-		}
 
 	case config.TD_Down:
 		if hallDown {
 			ce.ClearHallDown = true
-		}
-		if hallUp && !om.OrdersBelow(orders, floor) {
-			ce.ClearHallUp = true
 		}
 
 	default:
@@ -508,6 +538,33 @@ func shouldTakeOrdersAtFloor(e *Elevator) bool {
 	}
 	ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 	return ce.ClearCab || ce.ClearHallUp || ce.ClearHallDown
+}
+
+func oppositeTravelDirection(dir config.TravelDirection) config.TravelDirection {
+	if dir == config.TD_Up {
+		return config.TD_Down
+	}
+	return config.TD_Up
+}
+
+func hasOrdersInTravelDirection(e *Elevator) bool {
+	if e.Floor < 0 {
+		return false
+	}
+	if e.TravelDir == config.TD_Up {
+		return om.OrdersAbove(&e.Orders, e.Floor)
+	}
+	return om.OrdersBelow(&e.Orders, e.Floor)
+}
+
+func hasOppositeHallOrderAtFloor(e *Elevator) bool {
+	if e.Floor < 0 || e.Floor >= len(e.Orders.Hall) {
+		return false
+	}
+	if e.TravelDir == config.TD_Up {
+		return e.Orders.Hall[e.Floor][config.BT_HallDown]
+	}
+	return e.Orders.Hall[e.Floor][config.BT_HallUp]
 }
 
 func cabRequestsEqual(a, b []bool) bool {
