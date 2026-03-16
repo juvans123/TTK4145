@@ -14,7 +14,9 @@ func PublicStateFromFSM(e Elevator, myID string) config.ElevatorState {
         Behaviour: mapBehaviour(e.Behavior),
         Floor: e.Floor,
         Direction: mapDir(e.Dir),
-        CabRequests: cabCopy, 
+        CabRequests: cabCopy,
+        Obstructed: e.Obstructed,
+        Immobile: e.Immobile,
     }
 }
 
