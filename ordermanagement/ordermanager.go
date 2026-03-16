@@ -376,9 +376,13 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 		hallRequests[floor][config.BT_HallDown] = ws.ConfirmedHallOrders[floor][config.BT_HallDown]
 	}
 
+
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
 		if !ws.Alive[id] {
+			continue
+		}
+		if state.Immobile || state.Obstructed {
 			continue
 		}
 
