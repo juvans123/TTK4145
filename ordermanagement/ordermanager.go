@@ -328,7 +328,7 @@ func NewOrders(numFloors int) Orders {
 }
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
-	inputAssigner := buildAssignerInput(ws)
+	inputAssigner := buildAssignerInput(myID, ws)
 	path := "./hall_request_assigner/hall_request_assigner"
 
 	assignments, err := CallAssigner(path, inputAssigner)
@@ -378,7 +378,7 @@ func buildCabOnlyOrders(ws *WorldState, myID string) Orders {
 	return cabOnlyOrders
 }
 
-func buildAssignerInput(ws *WorldState) AssignerInput {
+func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 	hallRequests := make([][]bool, config.N_FLOORS)
 	for floor := 0; floor < config.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
@@ -391,7 +391,8 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 		if !ws.Alive[id] {
 			continue
 		}
-		if state.Immobile {
+
+		if state.Immobile && id != myID {
 			continue
 		}
 

@@ -138,6 +138,17 @@ func Run(
 
 			nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 
+			if e.Immobile && nowAtFloor && elevio.GetFloor() == -1 {
+				e.Behavior = EB_Moving
+				switch e.TravelDir {
+				case config.TD_Up:
+					setMotor(elevio.MD_Down)
+				case config.TD_Down:
+					setMotor(elevio.MD_Up)
+				}
+
+			}
+
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if nowAtFloor && !prevAtFloor {
 					timer.Reset(doorOpenDuration)
@@ -161,6 +172,9 @@ func Run(
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)
+					startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+				} else {
+					stopImmobileTimer(immobileTimer, &immobileTimerActive)
 				}
 				publishIfChanged()
 			}
@@ -170,9 +184,20 @@ func Run(
 			e.Floor = floor
 			elevio.SetFloorIndicator(floor)
 
+			if e.Immobile {
+				e.Immobile = false
+			}
+
+			if e.Behavior == EB_Moving {
+				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+			} else {
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
+			}
+
 			if e.Behavior == EB_Moving && !stopPressed {
 				if shouldStop(&e) {
 					stopMotor()
+					stopImmobileTimer(immobileTimer, &immobileTimerActive)
 					e.Dir = elevio.MD_Stop
 					e.Behavior = EB_Idle
 					// fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
@@ -221,6 +246,9 @@ func Run(
 			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 			if e.Behavior == EB_Moving {
 				setMotor(e.Dir)
+				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+			} else {
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
 			}
 
 			publishIfChanged()
@@ -247,6 +275,7 @@ func Run(
 
 			if sp {
 				stopMotor()
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
 				floor := elevio.GetFloor()
@@ -268,6 +297,7 @@ func Run(
 					e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 					if e.Behavior == EB_Moving {
 						setMotor(e.Dir)
+						startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
 					}
 				}
 			}
