@@ -138,6 +138,16 @@ func Run(
 
 			nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 
+			if e.Immobile && nowAtFloor && elevio.GetFloor() == -1 {
+				switch e.TravelDir {
+				case config.TD_Up:
+					setMotor(elevio.MD_Down)
+				case config.TD_Down:
+					setMotor(elevio.MD_Up)
+				}
+
+			}
+
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if nowAtFloor && !prevAtFloor {
 					timer.Reset(doorOpenDuration)

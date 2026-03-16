@@ -329,7 +329,7 @@ func NewOrders(numFloors int) Orders {
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	inputAssigner := buildAssignerInput(myID, ws)
-	path := "./hall_request_assigner/hall_request_assigner"
+	path := "./hall_request_assigner/hall_request_assigner.exe"
 
 	assignments, err := CallAssigner(path, inputAssigner)
 	if err != nil {
