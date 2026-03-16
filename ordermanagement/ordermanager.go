@@ -212,7 +212,7 @@ mainLoop:
 		if changed {
 			setButtonLight <- buildLightState(&ws, myID)
 			orders := buildMyLocalOrders(&ws, myID)
-			fmt.Printf("[OM %s] ordersOut cab%v hall=%v\n", myID, orders.Cab, orders.Hall)
+			//fmt.Printf("[OM %s] ordersOut cab%v hall=%v\n", myID, orders.Cab, orders.Hall)
 			ordersOutCh <- orders
 		}
 	}
