@@ -23,5 +23,7 @@ type Elevator struct {
 	TravelDir config.TravelDirection
 	Behavior Behavior
 	Orders om.Orders
+	Obstructed bool
+	Immobile bool
 }
 
