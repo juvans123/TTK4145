@@ -167,6 +167,7 @@ func Run(
 			}
 
 			if e.Behavior == EB_Idle && shouldTakeOrdersAtFloor(&e) {
+				fmt.Printf("EB_Idle && shouldTakeOrdersAtFloor(&e)")
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
 				if e.Obstructed {
@@ -178,6 +179,7 @@ func Run(
 			}
 
 			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+				fmt.Printf("e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor)")
 				// Idle at floor with only opposite hall call: flip service direction so we can serve it.
 				if !shouldTakeOrdersAtFloor(&e) && hasOppositeHallOrderAtFloor(&e) {
 					e.TravelDir = oppositeTravelDirection(e.TravelDir)
@@ -220,7 +222,9 @@ func Run(
 			} 
 
 			if e.Behavior == EB_Moving && !stopPressed {
+				fmt.Printf("før shouldStop")
 				if shouldStop(&e) {
+					fmt.Printf("etter shouldStop")
 					stopMotor()
 					stopMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
 					e.Dir = elevio.MD_Stop
