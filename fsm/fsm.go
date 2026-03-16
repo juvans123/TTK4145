@@ -274,11 +274,18 @@ func Run(
 			publishIfChanged()
 		case <-immobileTimer.C:
 			immobileTimerActive = false
-			if (e.Behavior == EB_Moving || e.Obstructed) && !stopPressed {
+			if e.Behavior == EB_Moving && !stopPressed {
 				e.Immobile = true
 				stopMotor()
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
+				publishIfChanged()
+			}
+			if e.Obstructed && !stopPressed {
+				e.Immobile = true
+				stopMotor()
+				e.Dir = elevio.MD_Stop
+				e.Behavior = EB_DoorOpen
 				publishIfChanged()
 			}
 		}

@@ -382,7 +382,7 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 		if !ws.Alive[id] {
 			continue
 		}
-		if state.Immobile || state.Obstructed {
+		if state.Immobile {
 			continue
 		}
 
