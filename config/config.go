@@ -103,6 +103,6 @@ func DefaultNetworkConfig() NetworkConfig {
 	return NetworkConfig{
 		StatePort:     16570,
 		HallOrderPort: 16571,
-		HeartbeatPort: 15647,
+		HeartbeatPort: 16647,
 	}
 }
