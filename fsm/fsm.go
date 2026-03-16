@@ -365,6 +365,12 @@ func Run(
 func elevatorInit(e *Elevator) {
 	// Hvis vi allerede står i en etasje, bare initialiser state riktig
 	elevio.SetDoorOpenLamp(false)
+	for floor := 0; floor < config.N_FLOORS; floor++ {
+		elevio.SetButtonLamp(config.BT_HallUp, floor, false)
+		elevio.SetButtonLamp(config.BT_HallDown, floor, false)
+		elevio.SetButtonLamp(config.BT_Cab, floor, false)
+	}
+	
 	if floor := elevio.GetFloor(); floor >= 0 {
 		e.Floor = floor
 		elevio.SetFloorIndicator(floor)
