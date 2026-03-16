@@ -232,14 +232,12 @@ func Run(
 						ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 						// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
 						clearCh <- ce
-					} /* else {
-						// Boundary stop without an order at this floor: choose a new valid direction.
-						dir, beh := chooseDirection(&e)
-						e.Dir, e.Behavior = dir, beh
-						if e.Behavior == EB_Moving {
-							setMotor(e.Dir)
-						}
-					} */
+					} else if !hasOrdersInTravelDirection(&e) && hasOppositeHallOrderAtFloor(&e) {
+						e.TravelDir = oppositeTravelDirection(e.TravelDir)
+						e.Behavior = EB_DoorOpen
+						openDoorAndSetLamp(timer)
+						clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+					}
 				}
 			}
 			publishIfChanged()
