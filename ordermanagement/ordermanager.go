@@ -212,7 +212,7 @@ mainLoop:
 		if changed {
 			setButtonLight <- buildLightState(&ws, myID)
 			orders := buildMyLocalOrders(&ws, myID)
-			fmt.Printf("[OM %s] ordersOut cab%v hall=%v\n", myID, orders.Cab, orders.Hall)
+			//fmt.Printf("[OM %s] ordersOut cab%v hall=%v\n", myID, orders.Cab, orders.Hall)
 			ordersOutCh <- orders
 		}
 	}
@@ -341,7 +341,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildCabOnlyOrders(ws, myID)
 	}
-	fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
+	//fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
 	myLocalOrders := NewOrders(config.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]

@@ -16,8 +16,7 @@ type DoorTimer interface {
 }
 
 const doorOpenDuration = 3 * time.Second
-
-// NYTT
+const motorImmobileTimeout = 3 * time.Second
 const obstructionImmobileTimeout = 5 * time.Second
 
 func Run(
@@ -50,16 +49,23 @@ func Run(
 	default:
 	}
 
-	immobileTimeout := 3 * time.Second
-	immobileTimer := time.NewTimer(immobileTimeout)
-	if !immobileTimer.Stop() {
+	motorImmobileTimer := time.NewTimer(motorImmobileTimeout)
+	if !motorImmobileTimer.Stop() {
 		select {
-		case <-immobileTimer.C:
+		case <-motorImmobileTimer.C:
 		default:
 		}
-
 	}
-	immobileTimerActive := false
+	motorImmobileTimerActive := false
+
+	obstructionTimer := time.NewTimer(obstructionImmobileTimeout)
+	if !obstructionTimer.Stop() {
+		select {
+		case <-obstructionTimer.C:
+		default:
+		}
+	}
+	obstructionTimerActive := false
 
 	publishIfChanged := func() {
 		st := PublicStateFromFSM(e, myID)
@@ -151,6 +157,7 @@ func Run(
 
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if shouldTakeOrdersAtFloor(&e) && !prevAtFloor {
+					fmt.Printf("JEG ER HER")
 					timer.Reset(doorOpenDuration)
 					ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 					clearCh <- ce
@@ -160,14 +167,19 @@ func Run(
 			}
 
 			if e.Behavior == EB_Idle && shouldTakeOrdersAtFloor(&e) {
+				fmt.Printf("EB_Idle && shouldTakeOrdersAtFloor(&e)")
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
+				if e.Obstructed {
+					startObstructionTimer(obstructionTimer, &obstructionTimerActive)
+				}
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				publishIfChanged()
 				continue
 			}
 
 			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+				fmt.Printf("e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor)")
 				// Idle at floor with only opposite hall call: flip service direction so we can serve it.
 				if !shouldTakeOrdersAtFloor(&e) && hasOppositeHallOrderAtFloor(&e) {
 					e.TravelDir = oppositeTravelDirection(e.TravelDir)
@@ -175,6 +187,9 @@ func Run(
 				if shouldTakeOrdersAtFloor(&e) {
 					e.Behavior = EB_DoorOpen
 					openDoorAndSetLamp(timer)
+					if e.Obstructed {
+						startObstructionTimer(obstructionTimer, &obstructionTimerActive)
+					}
 					clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 					publishIfChanged()
 					continue
@@ -182,14 +197,14 @@ func Run(
 			}
 
 			if e.Behavior == EB_Idle {
+				fmt.Printf("Behavior before chooseDir: %v\n", e.Behavior)
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
+				fmt.Printf("Behavior after chooseDir: %v\n", e.Behavior)
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)
-					startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
-				} else {
-					stopImmobileTimer(immobileTimer, &immobileTimerActive)
-				}
+					startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
+				} 
 				publishIfChanged()
 			}
 
@@ -200,35 +215,37 @@ func Run(
 
 			if e.Immobile && !e.Obstructed{
 				e.Immobile = false
+				e.Behavior = EB_Moving
 			}
 
 			if e.Behavior == EB_Moving {
-				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
-			} else {
-				stopImmobileTimer(immobileTimer, &immobileTimerActive)
-			}
+				startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
+			} 
 
 			if e.Behavior == EB_Moving && !stopPressed {
+				fmt.Printf("før shouldStop")
 				if shouldStop(&e) {
+					fmt.Printf("etter shouldStop")
 					stopMotor()
-					stopImmobileTimer(immobileTimer, &immobileTimerActive)
+					stopMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
 					e.Dir = elevio.MD_Stop
 					e.Behavior = EB_Idle
 					// fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
 					if om.HasOrderAtFloor(&e.Orders, e.Floor) {
 						e.Behavior = EB_DoorOpen
 						openDoorAndSetLamp(timer)
+						if e.Obstructed {
+							startObstructionTimer(obstructionTimer, &obstructionTimerActive)
+						}
 						ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 						// fmt.Printf("[FSM %s] clear attempt floor=%d dir=%v orders=%+v ce=%+v\n", myID, e.Floor, e.TravelDir, ordersAtFloorSnapshot(&e.Orders, e.Floor), ce)
 						clearCh <- ce
-					} /* else {
-						// Boundary stop without an order at this floor: choose a new valid direction.
-						dir, beh := chooseDirection(&e)
-						e.Dir, e.Behavior = dir, beh
-						if e.Behavior == EB_Moving {
-							setMotor(e.Dir)
-						}
-					} */
+					} else if !hasOrdersInTravelDirection(&e) && hasOppositeHallOrderAtFloor(&e) {
+						e.TravelDir = oppositeTravelDirection(e.TravelDir)
+						e.Behavior = EB_DoorOpen
+						openDoorAndSetLamp(timer)
+						clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+					}
 				}
 			}
 			publishIfChanged()
@@ -259,6 +276,9 @@ func Run(
 			if !hasOrdersInTravelDirection(&e) && hasOppositeHallOrderAtFloor(&e) {
 				e.TravelDir = oppositeTravelDirection(e.TravelDir)
 				openDoorAndSetLamp(timer)
+				if e.Obstructed {
+					startObstructionTimer(obstructionTimer, &obstructionTimerActive)
+				}
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				publishIfChanged()
 				continue
@@ -270,10 +290,8 @@ func Run(
 			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 			if e.Behavior == EB_Moving {
 				setMotor(e.Dir)
-				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
-			} else {
-				stopImmobileTimer(immobileTimer, &immobileTimerActive)
-			}
+				startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
+			} 
 
 			publishIfChanged()
 
@@ -281,9 +299,11 @@ func Run(
 		case obs := <-obstrCh:
 			e.Obstructed = obs
 			if obs {
-				startImmobileTimer(immobileTimer, &immobileTimerActive, obstructionImmobileTimeout)
+				if e.Behavior == EB_DoorOpen {
+					startObstructionTimer(obstructionTimer, &obstructionTimerActive)
+				}
 			} else {
-				stopImmobileTimer(immobileTimer, &immobileTimerActive)
+				stopObstructionTimer(obstructionTimer, &obstructionTimerActive)
 				e.Immobile = false
 				if e.Behavior == EB_DoorOpen {
 					timer.Reset(doorOpenDuration)
@@ -299,7 +319,8 @@ func Run(
 
 			if sp {
 				stopMotor()
-				stopImmobileTimer(immobileTimer, &immobileTimerActive)
+				stopMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
+				stopObstructionTimer(obstructionTimer, &obstructionTimerActive)
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
 				floor := elevio.GetFloor()
@@ -315,27 +336,33 @@ func Run(
 				// Stopp sluppet: gå tilbake til normal drift
 				if e.Behavior == EB_DoorOpen {
 					timer.Reset(doorOpenDuration)
+					if e.Obstructed {
+						startObstructionTimer(obstructionTimer, &obstructionTimerActive)
+					}
 				} else if e.Behavior == EB_Idle {
 
 					travelDir, behavior, dir := chooseDirection(&e)
 					e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 					if e.Behavior == EB_Moving {
 						setMotor(e.Dir)
-						startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+						startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
 					}
 				}
 			}
 			publishIfChanged()
-		case <-immobileTimer.C:
-			immobileTimerActive = false
+		case <-motorImmobileTimer.C:
+			motorImmobileTimerActive = false
 			if e.Behavior == EB_Moving && !stopPressed {
 				e.Immobile = true
-				stopMotor()
+				//stopMotor()
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
 				publishIfChanged()
 			}
-			if e.Obstructed && !stopPressed {
+		
+		case <-obstructionTimer.C:
+			obstructionTimerActive = false
+			if e.Obstructed && e.Behavior == EB_DoorOpen && !stopPressed {
 				e.Immobile = true
 				stopMotor()
 				e.Dir = elevio.MD_Stop
@@ -585,7 +612,7 @@ func cabRequestsEqual(a, b []bool) bool {
 	return true
 }
 
-func startImmobileTimer(timer *time.Timer, active *bool, timeOut time.Duration) {
+func startTimer(timer *time.Timer, active *bool, timeOut time.Duration) {
 	if *active {
 		if !timer.Stop() {
 			select {
@@ -599,7 +626,7 @@ func startImmobileTimer(timer *time.Timer, active *bool, timeOut time.Duration) 
 	*active = true
 }
 
-func stopImmobileTimer(timer *time.Timer, active *bool) {
+func stopTimer(timer *time.Timer, active *bool) {
 	if *active {
 		if !timer.Stop() {
 			select {
@@ -610,4 +637,22 @@ func stopImmobileTimer(timer *time.Timer, active *bool) {
 	}
 
 	*active = false
+}
+
+
+
+func startMotorTimer(timer *time.Timer, active *bool) {
+	startTimer(timer, active, motorImmobileTimeout)
+}
+
+func stopMotorTimer(timer *time.Timer, active *bool) {
+	stopTimer(timer, active)
+}
+
+func startObstructionTimer(timer *time.Timer, active *bool) {
+	startTimer(timer, active, obstructionImmobileTimeout)
+}
+
+func stopObstructionTimer(timer *time.Timer, active *bool) {
+	stopTimer(timer, active)
 }
