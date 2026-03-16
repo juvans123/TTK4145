@@ -136,9 +136,9 @@ func Run(
 				continue
 			}
 
-			nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
+			//nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 
-			if e.Immobile && nowAtFloor && elevio.GetFloor() == -1 {
+			if e.Immobile && om.HasOrderAtFloor(&e.Orders, e.Floor) && elevio.GetFloor() == -1 {
 				e.Behavior = EB_Moving
 				switch e.TravelDir {
 				case config.TD_Up:
@@ -150,7 +150,7 @@ func Run(
 			}
 
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
-				if nowAtFloor && !prevAtFloor {
+				if shouldTakeOrdersAtFloor(&e) && !prevAtFloor {
 					timer.Reset(doorOpenDuration)
 					ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 					clearCh <- ce
