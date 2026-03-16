@@ -157,6 +157,7 @@ func Run(
 
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if shouldTakeOrdersAtFloor(&e) && !prevAtFloor {
+					fmt.Printf("JEG ER HER")
 					timer.Reset(doorOpenDuration)
 					ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 					clearCh <- ce
