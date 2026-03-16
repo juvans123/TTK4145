@@ -194,7 +194,9 @@ func Run(
 			}
 
 			if e.Behavior == EB_Idle {
+				fmt.Printf("Behavior before chooseDir: %v", e.Behavior)
 				travelDir, behavior, dir := chooseDirection(&e)
+				fmt.Printf("Behavior after chooseDir: %v", e.Behavior)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)

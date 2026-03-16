@@ -341,7 +341,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildCabOnlyOrders(ws, myID)
 	}
-	fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
+	//fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
 	myLocalOrders := NewOrders(config.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
