@@ -198,7 +198,7 @@ func Run(
 			e.Floor = floor
 			elevio.SetFloorIndicator(floor)
 
-			if e.Immobile {
+			if e.Immobile && !e.Obstructed{
 				e.Immobile = false
 			}
 
