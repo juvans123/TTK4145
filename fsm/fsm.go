@@ -346,9 +346,9 @@ func Run(
 			motorImmobileTimerActive = false
 			if e.Behavior == EB_Moving && !stopPressed {
 				e.Immobile = true
-				stopMotor()
-				e.Dir = elevio.MD_Stop
-				e.Behavior = EB_Idle
+				//stopMotor()
+				//e.Dir = elevio.MD_Stop
+				//e.Behavior = EB_Idle
 				publishIfChanged()
 			}
 		
