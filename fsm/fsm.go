@@ -139,6 +139,7 @@ func Run(
 			nowAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&e.Orders, e.Floor)
 
 			if e.Immobile && nowAtFloor && elevio.GetFloor() == -1 {
+				e.Behavior = EB_Moving
 				switch e.TravelDir {
 				case config.TD_Up:
 					setMotor(elevio.MD_Down)
