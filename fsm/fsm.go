@@ -161,6 +161,9 @@ func Run(
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)
+					startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+				} else {
+					stopImmobileTimer(immobileTimer, &immobileTimerActive)
 				}
 				publishIfChanged()
 			}
@@ -170,9 +173,20 @@ func Run(
 			e.Floor = floor
 			elevio.SetFloorIndicator(floor)
 
+			if e.Immobile {
+				e.Immobile = false
+			}
+
+			if e.Behavior == EB_Moving {
+				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+			} else {
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
+			}
+
 			if e.Behavior == EB_Moving && !stopPressed {
 				if shouldStop(&e) {
 					stopMotor()
+					stopImmobileTimer(immobileTimer, &immobileTimerActive)
 					e.Dir = elevio.MD_Stop
 					e.Behavior = EB_Idle
 					// fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
@@ -221,6 +235,9 @@ func Run(
 			e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 			if e.Behavior == EB_Moving {
 				setMotor(e.Dir)
+				startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
+			} else {
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
 			}
 
 			publishIfChanged()
@@ -247,6 +264,7 @@ func Run(
 
 			if sp {
 				stopMotor()
+				stopImmobileTimer(immobileTimer, &immobileTimerActive)
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
 				floor := elevio.GetFloor()
@@ -268,6 +286,7 @@ func Run(
 					e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
 					if e.Behavior == EB_Moving {
 						setMotor(e.Dir)
+						startImmobileTimer(immobileTimer, &immobileTimerActive, immobileTimeout)
 					}
 				}
 			}
