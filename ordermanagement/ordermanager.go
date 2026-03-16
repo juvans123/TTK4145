@@ -15,7 +15,7 @@ func Run(
 	peerEventCh <-chan config.PeerEvent,
 	ordersOutCh chan<- Orders,
 	OrderOutCh chan<- OrderMsg, // OM -> Network
-	OrderInCh <-chan OrderMsg,  // OM <- Network
+	OrderInCh <-chan OrderMsg, // OM <- Network
 	setButtonLight chan<- config.LightState,
 ) {
 	ws := NewWorldState()
@@ -45,7 +45,7 @@ mainLoop:
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
 
 			info := localOrderView[key]
-			if info.Phase != NoOrder {
+			if info.Phase == Unconfirmed || info.Phase == Confirmed {
 				continue mainLoop
 			}
 
@@ -91,20 +91,35 @@ mainLoop:
 				localOrderView[key] = info
 
 				// Clear worldstate lokalt (idempotent)
-			 	if clearOrderInWorldState(&ws, key) {
+				if clearOrderInWorldState(&ws, key) {
 					changed = true
-				} 
+				}
 				changed = true
+
+				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+					delete(localOrderView, key)
+				}
 				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
 					delete(localOrderView, key)
 				} */
 			}
 
 		case st := <-localStateCh:
+			prev := ws.States[myID]
+			st.ID = myID
 			ws.States[st.ID] = st
 
+			if prev.Immobile != st.Immobile {
+				changed = true
+			}
+
 		case pst := <-peerStateCh:
+			prev := ws.States[pst.ID]
 			ws.States[pst.ID] = pst
+
+			if prev.Immobile != pst.Immobile {
+				changed = true
+			}
 
 		case pe := <-peerEventCh:
 			prev, exists := ws.Alive[pe.PeerID]
@@ -120,8 +135,7 @@ mainLoop:
 						delete(localOrderView, key)
 					}
 				}
-			} 
-
+			}
 
 		case peerOrder := <-OrderInCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
@@ -314,7 +328,7 @@ func NewOrders(numFloors int) Orders {
 }
 
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
-	inputAssigner := buildAssignerInput(ws)
+	inputAssigner := buildAssignerInput(myID, ws)
 	path := "./hall_request_assigner/hall_request_assigner"
 
 	assignments, err := CallAssigner(path, inputAssigner)
@@ -364,7 +378,7 @@ func buildCabOnlyOrders(ws *WorldState, myID string) Orders {
 	return cabOnlyOrders
 }
 
-func buildAssignerInput(ws *WorldState) AssignerInput {
+func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 	hallRequests := make([][]bool, config.N_FLOORS)
 	for floor := 0; floor < config.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
@@ -375,6 +389,10 @@ func buildAssignerInput(ws *WorldState) AssignerInput {
 	states := make(map[string]config.ElevatorState)
 	for id, state := range ws.States {
 		if !ws.Alive[id] {
+			continue
+		}
+
+		if state.Immobile && id != myID {
 			continue
 		}
 
