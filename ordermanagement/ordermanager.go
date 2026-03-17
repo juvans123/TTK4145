@@ -8,14 +8,14 @@ import (
 
 func Run(
 	myID string,
-	buttonCh <-chan config.ButtonEvent,
+	buttonPressedCh <-chan config.ButtonEvent,
 	clearCh <-chan config.ClearEvent,
 	localStateCh <-chan config.ElevatorState,
 	peerStateCh <-chan config.ElevatorState,
-	peerEventCh <-chan config.PeerEvent,
-	ordersOutCh chan<- Orders,
-	OrderOutCh chan<- OrderMsg, // OM -> Network
-	OrderInCh <-chan OrderMsg, // OM <- Network
+	peerAlivenessCh <-chan config.PeerEvent,
+	ordersToFsmCh chan<- Orders,
+	OrdersBroadcastCh chan<- OrderMsg, // OM -> Network
+	OrdersFromNetwork <-chan OrderMsg, // OM <- Network
 	setButtonLight chan<- config.LightState,
 ) {
 	worldState := NewWorldState()
@@ -33,14 +33,14 @@ func Run(
 		CabRequests: make([]bool, config.N_FLOORS),
 	}
 
-	ordersOutCh <- buildMyLocalOrders(&worldState, myID)
+	ordersToFsmCh <- buildMyLocalOrders(&worldState, myID)
 
 mainLoop:
 	for {
 		changed := false
 
 		select {
-		case btn := <-buttonCh:
+		case btn := <-buttonPressedCh:
 
 			ownerID := ownerForButton(myID, btn.Button)
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
@@ -97,7 +97,7 @@ mainLoop:
 			}
 
 		case newLocalState := <-localStateCh:
-			
+
 			prevLocalState := worldState.States[myID]
 			newLocalState.ID = myID  //fjerne denne linjer og skrive myID direkte i linjen under
 			worldState.States[newLocalState.ID] = newLocalState
@@ -114,7 +114,7 @@ mainLoop:
 				changed = true
 			}
 
-		case peer := <-peerEventCh:
+		case peer := <-peerAlivenessCh:
 			prev, exists := worldState.Alive[peer.PeerID]
 			if !exists || prev != peer.Alive {
 				worldState.Alive[peer.PeerID] = peer.Alive
@@ -132,7 +132,7 @@ mainLoop:
 
 		//her vil jeg kalle kanalen peerAlivenesschange, inni peerevent så skal jeg fjerne peer før id, og døpe om peerevent til peeralivness
 
-		case peerOrder := <-OrderInCh:
+		case peerOrder := <-OrdersFromNetwork:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 			localOrder := localOrderView[key]
 
@@ -193,7 +193,7 @@ mainLoop:
 				if localOrder.Phase == NoOrder {
 					continue
 				}
-				OrderOutCh <- OrderMsg{
+				OrdersBroadcastCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
@@ -205,7 +205,7 @@ mainLoop:
 
 		if changed {
 			setButtonLight <- buildLightState(&worldState, myID)
-			ordersOutCh <- buildMyLocalOrders(&worldState, myID)
+			ordersToFsmCh <- buildMyLocalOrders(&worldState, myID)
 		}
 	}
 }
