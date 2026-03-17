@@ -24,32 +24,32 @@ func main() {
 
 	elevio.Init(*addrFlag, *floorsFlag)
 
-	buttonCh := make(chan config.ButtonEvent)
+	buttonPressedCh := make(chan config.ButtonEvent)
 	floorCh := make(chan int)
 	obstructionCh := make(chan bool)
 	stopButtonCh := make(chan bool)
 
-	ordersOutCh := make(chan om.Orders, 10)
+	ordersToFsmCh := make(chan om.Orders, 10)
 	clearCh := make(chan config.ClearEvent, 10)
 	//localStateCh := make(chan config.ElevatorState)
 	//peerUpdateCh := make(chan config.PeerUpdate)
 
 	fsmStateCh := make(chan config.ElevatorState, 16)      // fra FSM
-	omLocalStateCh := make(chan config.ElevatorState, 16)  // til OM
+	localStateCh := make(chan config.ElevatorState, 16)  // til OM
 	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
 
-	buttonLights := make(chan config.LightState, 16) // fra OM til FSM
+	buttonLightsCh := make(chan config.LightState, 16) // fra OM til FSM
 
 	// OM og broadcaster leser fra samme kanal -> konflikt
 	go func() {
 		for state := range fsmStateCh {
-			omLocalStateCh <- state
+			localStateCh <- state
 			netLocalStateCh <- state
 		}
 	}()
 
 	// Hardware polling
-	go elevio.PollButtons(buttonCh)
+	go elevio.PollButtons(buttonPressedCh)
 	go elevio.PollFloorSensor(floorCh)
 	go elevio.PollObstructionSwitch(obstructionCh)
 	go elevio.PollStopButton(stopButtonCh)
@@ -69,16 +69,16 @@ func main() {
 	//OrderTx := make(chan om.OrderMsg, 16)
 	//OrderRx := make(chan om.OrderMsg, 64)
 
-	orderInternal := make(chan om.OrderMsg, 16) //OM -> network
+	ordersBroadcastCh := make(chan om.OrderMsg, 16) //OM -> network
 	orderNetTx := make(chan om.OrderMsg, 16) // network -> bcast TX
 	orderNetRx := make(chan om.OrderMsg, 64) // bcast RX -> network
-	orderIncoming := make(chan om.OrderMsg, 64) // network -> OM
+	ordersFromNetworkCh := make(chan om.OrderMsg, 64) // network -> OM
 
 
 	go network.Transmitter(netCfg.HallOrderPort, orderNetTx)
 	go network.Receiver(netCfg.HallOrderPort, orderNetRx)
-	go network.RunOrderBroadcast(orderInternal, orderNetTx)
-	go network.RunOrderReceive(orderNetRx, orderIncoming)
+	go network.RunOrderBroadcast(ordersBroadcastCh, orderNetTx)
+	go network.RunOrderReceive(orderNetRx, ordersFromNetworkCh)
 
 
 	// clearPort = 16572
@@ -102,16 +102,16 @@ func main() {
 
 	// --- Supervisor: peer health monitoring ---
 	
-	peerEventCh := make(chan config.PeerEvent, 16) //Ny
+	peerAlivenessCh := make(chan config.PeerEvent, 16) //Ny
 
-	sup := supervisor.New(supervisor.NewConfig(myID), hbInternal, hbIncoming, peerEventCh)
+	sup := supervisor.New(supervisor.NewConfig(myID), hbInternal, hbIncoming, peerAlivenessCh)
 	go func() {
 		sup.MonitorPeerHealth(context.Background())
 	}()
 
 	// Order manager
   
-	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, orderInternal, orderIncoming, buttonLights)
+	go om.Run(myID, buttonPressedCh, clearCh, localStateCh, peerStateCh, peerAlivenessCh, ordersToFsmCh, ordersBroadcastCh, ordersFromNetworkCh, buttonLightsCh)
 
 	// FSM
 	go fsm.Run(myID, doorTimer, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLights)
