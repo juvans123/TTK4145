@@ -515,15 +515,15 @@ func updateButtonLights(ls config.LightState) {
 }
 
 func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
-	ce := config.ClearEvent{
+	clear := config.ClearEvent{
 		Floor:         floor,
-		ClearCab:      false,
-		ClearHallUp:   false,
-		ClearHallDown: false,
+		Cab:      false,
+		HallUp:   false,
+		HallDown: false,
 	}
 
 	if floor < 0 || floor >= len(orders.Cab) {
-		return ce
+		return clear
 	}
 
 	/* ce.ClearCab = orders.Cab[floor]
@@ -533,44 +533,44 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 	hallUp := orders.Hall[floor][config.BT_HallUp]
 	hallDown := orders.Hall[floor][config.BT_HallDown]
 
-	ce.ClearCab = orders.Cab[floor]
+	clear.Cab = orders.Cab[floor]
 
 	// At end floors there is only one valid hall direction; clear it immediately
 	// together with cab, regardless of current travel direction.
 	if floor == 0 {
-		ce.ClearHallUp = hallUp
-		return ce
+		clear.HallUp = hallUp
+		return clear
 	}
 	if floor == config.N_FLOORS-1 {
-		ce.ClearHallDown = hallDown
-		return ce
+		clear.HallDown = hallDown
+		return clear
 	}
 
 	switch dir {
 	case config.TD_Up:
 		if hallUp {
-			ce.ClearHallUp = true
+			clear.HallUp = true
 		}
 
 	case config.TD_Down:
 		if hallDown {
-			ce.ClearHallDown = true
+			clear.HallDown = true
 		}
 
 	default:
-		ce.ClearHallUp = hallUp
-		ce.ClearHallDown = hallDown
+		clear.HallUp = hallUp
+		clear.HallDown = hallDown
 	}
 
-	return ce
+	return clear
 }
 
 func shouldTakeOrdersAtFloor(e *Elevator) bool {
 	if e.Floor < 0 || e.Floor >= len(e.Orders.Cab) {
 		return false
 	}
-	ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
-	return ce.ClearCab || ce.ClearHallUp || ce.ClearHallDown
+	clear := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+	return clear.Cab || clear.HallUp || clear.HallDown
 }
 
 func oppositeTravelDirection(dir config.TravelDirection) config.TravelDirection {

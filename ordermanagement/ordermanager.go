@@ -58,14 +58,16 @@ mainLoop:
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 			}
 
-		case cl := <-clearCh:
+		case clear := <-clearCh:
+
+			
 			clears := []struct {
 				shouldClear bool
 				button      config.ButtonType
 			}{
-				{cl.ClearCab, config.BT_Cab},
-				{cl.ClearHallUp, config.BT_HallUp},
-				{cl.ClearHallDown, config.BT_HallDown},
+				{clear.Cab, config.BT_Cab},
+				{clear.HallUp, config.BT_HallUp},
+				{clear.HallDown, config.BT_HallDown},
 			}
 
 			for _, clearInfo := range clears {
@@ -75,7 +77,7 @@ mainLoop:
 
 				//lage en funksjon som gjør dette?
 				ownerID := ownerForButton(myID, clearInfo.button)
-				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
+				key := makeOrderKey(ownerID, clear.Floor, clearInfo.button)
 				localOrder := localOrderView[key]
 			
 
