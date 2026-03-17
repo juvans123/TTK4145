@@ -5,7 +5,6 @@ import "time"
 const N_FLOORS = 4
 
 type TravelDirection int
-
 const (
 	TD_Up TravelDirection = iota
 	TD_Down
@@ -37,7 +36,6 @@ type ButtonEvent struct {
 }
 
 type Behaviour string
-
 const (
 	BehIdle     Behaviour = "idle"
 	BehMoving   Behaviour = "moving"
@@ -45,7 +43,6 @@ const (
 )
 
 type Direction string
-
 const (
 	DirUp   Direction = "up"
 	DirDown Direction = "down"
