@@ -114,7 +114,7 @@ func main() {
 	go om.Run(myID, buttonPressedCh, clearCh, localStateCh, peerStateCh, peerAlivenessCh, ordersToFsmCh, ordersBroadcastCh, ordersFromNetworkCh, buttonLightsCh)
 
 	// FSM
-	go fsm.Run(myID, doorTimer, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLights)
+	go fsm.Run(myID, doorTimer, floorCh, ordersToFsmCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLightsCh)
 
 	select {}
 }
