@@ -17,9 +17,9 @@ type OrderEvent struct {
 
 type ClearEvent struct {
 	Floor         int
-	ClearCab      bool
-	ClearHallUp   bool
-	ClearHallDown bool
+	Cab      bool
+	HallUp   bool
+	HallDown bool
 }
 
 type ButtonType int

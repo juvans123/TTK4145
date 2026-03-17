@@ -51,21 +51,23 @@ mainLoop:
 			localOrder = setLocalOrderPhase(localOrderView, key, Unconfirmed, myID)
 
 			if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
-				if confirmOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				confirmOrderInWorldState(&worldState, key)
+				changed = true
+				
 				
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 			}
 
-		case cl := <-clearCh:
+		case clear := <-clearCh:
+
+
 			clears := []struct {
 				shouldClear bool
 				button      config.ButtonType
 			}{
-				{cl.ClearCab, config.BT_Cab},
-				{cl.ClearHallUp, config.BT_HallUp},
-				{cl.ClearHallDown, config.BT_HallDown},
+				{clear.Cab, config.BT_Cab},
+				{clear.HallUp, config.BT_HallUp},
+				{clear.HallDown, config.BT_HallDown},
 			}
 
 			for _, clearInfo := range clears {
@@ -75,7 +77,7 @@ mainLoop:
 
 				//lage en funksjon som gjør dette?
 				ownerID := ownerForButton(myID, clearInfo.button)
-				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
+				key := makeOrderKey(ownerID, clear.Floor, clearInfo.button)
 				localOrder := localOrderView[key]
 			
 
@@ -85,9 +87,8 @@ mainLoop:
 
 				localOrder = setLocalOrderPhase(localOrderView, key, Served, myID)
 
-				if clearOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				clearOrderInWorldState(&worldState, key)
+				
 				changed = true
 
 				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
@@ -168,23 +169,20 @@ mainLoop:
 
 			switch localOrder.Phase {
 			case Unconfirmed:
-				if confirmOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				confirmOrderInWorldState(&worldState, key)
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 				changed = true
 
 
 			case Confirmed:
-
-				if confirmOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				confirmOrderInWorldState(&worldState, key)
+				changed = true
+				
 
 			case Served:
-				if clearOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				clearOrderInWorldState(&worldState, key)
+				changed = true
+				
 				delete(localOrderView, key)
 				changed = true
 			}
