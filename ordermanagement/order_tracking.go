@@ -4,13 +4,14 @@ import (
 	"heis/config"
 )
 
-func setLocalOrderPhase(view OrderTracker, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
-	localOrder := view[key]
+func setLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
+	localOrder := localOrderview[key]
 	localOrder.Phase = newPhase
 	localOrder.SeenBy = map[string]bool{myID: true}
-	view[key] = localOrder
+	localOrderview[key] = localOrder
 	return localOrder
 }
+
 
 func ownerForButton(myID string, button config.ButtonType) string {
 	if button == config.BT_Cab {
