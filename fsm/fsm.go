@@ -136,7 +136,6 @@ func Run(
 			if e.Behavior == EB_Moving && !stopPressed && shouldStop(&e) {
 				stopMotor()
 				stopMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
-
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
 
@@ -232,9 +231,7 @@ func Run(
 					e.Behavior = EB_DoorOpen
 					openDoorAndStartTimer(doorTimer)
 					//clearer ikke her
-				} else {
-					e.Behavior = EB_Idle
-				}
+				} 
 			} else {
 				if e.Behavior == EB_DoorOpen {
 					doorTimer.Reset(doorOpenDuration)
