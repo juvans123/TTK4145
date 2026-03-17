@@ -2,10 +2,9 @@ package network
 
 import (
 	"heis/config"
-	"heis/supervisor"
+	"heis/msgfreshness"
 	"log"
 	"time"
-	//"fmt"
 )
 
 const RunStateBroadcastInterval = 100 * time.Millisecond
@@ -61,7 +60,7 @@ func RunStateReceive(
 		}
 
 	 	last, known := lastCounter[state.ID]
-		if known && !supervisor.IsNewer(state.Counter, last){
+		if known && !msgfreshness.IsSequentiallyNewer(state.Counter, last){
 			//fmt.Printf("[RunStateReceive %s] DROP from=%s counter=%d last=%d\n",myID, state.ID, state.Counter, last)
 			continue //filtrer duplikat eller forsinket
 		}

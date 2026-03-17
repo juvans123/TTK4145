@@ -63,12 +63,6 @@ type ElevatorState struct {
 	Immobile    bool
 }
 
-/*
-type PeerUpdate struct {
-    ID    string
-    Alive bool
-}
-*/
 
 type PeerEvent struct {
 	PeerID string

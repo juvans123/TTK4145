@@ -1,5 +1,8 @@
 package supervisor
 
+// MEGET KRITISK MED NON-BLOCKING SEND
+// VURDER HANDLEINCOMING HEARTBEATS
+
 import (
 	"context"
 	"fmt"
@@ -8,34 +11,34 @@ import (
 )
 
 type Supervisor struct {
-	config      Config
-	myCounter   uint8
-	hbTx        chan<- Heartbeat
-	hbRx        <-chan Heartbeat
-	PeerEventTx chan<- config.PeerEvent
+	config               Config
+	localTickCount       uint8
+	outgoingHeartbeatsCh chan<- Heartbeat
+	incomingHeartbeatsCh <-chan Heartbeat
+	PeerEventTx          chan<- config.PeerEvent
 }
 
 func New(
 	cfg Config,
-	hbTx chan<- Heartbeat,
-	hbRx <-chan Heartbeat,
+	outgoingHeartbeatsCh chan<- Heartbeat,
+	incomingHeartbeatsCh <-chan Heartbeat,
 	peerEventTx chan<- config.PeerEvent,
 ) *Supervisor {
 	return &Supervisor{
-		config:      cfg,
-		myCounter:   0,
-		hbTx:        hbTx,
-		hbRx:        hbRx,
-		PeerEventTx: peerEventTx,
+		config:               cfg,
+		localTickCount:       0,
+		outgoingHeartbeatsCh: outgoingHeartbeatsCh,
+		incomingHeartbeatsCh: incomingHeartbeatsCh,
+		PeerEventTx:          peerEventTx,
 	}
 }
 
 func (s *Supervisor) MonitorPeerHealth(ctx context.Context) error {
-	ticker := time.NewTicker(s.config.SupervisorConfig.TickInterval)
+	ticker := time.NewTicker(s.config.tickInterval())
 	defer ticker.Stop()
 	tracker := NewPeerTracker(
-		s.config.SupervisorConfig.SuspectThreshold,
-		s.config.SupervisorConfig.ConsensusRequired,
+		s.config.suspectThreshold(),
+		s.config.consensusRequired(),
 	)
 
 	fmt.Printf("[Supervisor %s] Starting\n", s.config.MyID)
@@ -45,49 +48,55 @@ func (s *Supervisor) MonitorPeerHealth(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			s.handleTick(tracker)
-		case hb := <-s.hbRx:
+			s.broadcastHeartbeatAndDetectTimeouts(tracker)
+		case hb := <-s.incomingHeartbeatsCh:
 			s.handleIncomingHeartbeat(hb, tracker)
 		}
 	}
 }
 
-func (s *Supervisor) handleTick(tracker *peerTracker) {
-	s.myCounter++
+func (s *Supervisor) broadcastHeartbeatAndDetectTimeouts(tracker *PeerTracker) {
+	s.localTickCount++
 	s.sendHeartbeat(tracker)
-	updates := tracker.detectHeartbeatTimeouts(s.myCounter)
-	s.sendEvents(updates)
+
+	tracker.markTimedOutPeersAsSuspected(s.localTickCount)
+
+	deadUpdates := tracker.confirmDeadPeersIfConsensusReached()
+	s.logStateTransitions(deadUpdates)
+	s.notifyOrderManagerOfConfirmedTransitions(deadUpdates)
 }
 
-func (s *Supervisor) sendHeartbeat(tracker *peerTracker) {
+func (s *Supervisor) sendHeartbeat(tracker *PeerTracker) {
 	hb := Heartbeat{
 		PeerID:         s.config.MyID,
-		Counter:        s.myCounter,
+		Counter:        s.localTickCount,
 		SuspectedPeers: tracker.getSuspectedPeers(),
 	}
 	select {
-	case s.hbTx <- hb:
+	case s.outgoingHeartbeatsCh <- hb:
 	default:
 	}
 }
 
-func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *peerTracker) {
+func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *PeerTracker) {
 	if hb.PeerID == s.config.MyID {
 		return
 	}
-	updates := tracker.processHeartbeat(hb, s.config.MyID, s.myCounter)
-	s.sendEvents(updates)
+	updates := tracker.receivePeerHeartbeat(hb, s.config.MyID, s.localTickCount)
+	s.notifyOrderManagerOfConfirmedTransitions(updates)
+	s.logStateTransitions(updates)
+
 }
 
-func (s *Supervisor) sendEvents(updates []peerUpdate) {
+func (s *Supervisor) logStateTransitions(updates []peerUpdate) {
 	for _, u := range updates {
 		fmt.Printf("[Supervisor %s] %s: %s -> %s\n",
 			s.config.MyID, u.peerID, u.oldState, u.newState)
+	}
+}
 
-		if u.newState == SuspectedDead{ //Vi hopper over å sende suspecteddead
-			continue
-		}
-
+func (s *Supervisor) notifyOrderManagerOfConfirmedTransitions(updates []peerUpdate) {
+	for _, u := range updates {
 		select {
 		case s.PeerEventTx <- toPeerEvent(u):
 		default:
@@ -98,6 +107,6 @@ func (s *Supervisor) sendEvents(updates []peerUpdate) {
 func toPeerEvent(u peerUpdate) config.PeerEvent {
 	return config.PeerEvent{
 		PeerID: u.peerID,
-		Alive:  u.newState == Alive,
+		Alive:  u.newState == PeerStateAlive,
 	}
 }
