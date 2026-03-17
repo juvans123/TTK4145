@@ -10,7 +10,6 @@ import (
 	"heis/network"
 	om "heis/ordermanagement"
 	"heis/supervisor"
-	"heis/timer"
 	//"time"
 )
 
@@ -21,6 +20,7 @@ func main() {
 	flag.Parse()
 	myID := *idFlag
 	netCfg := config.DefaultNetworkConfig()
+	doorTimer := fsm.NewStoppedDoorTimer()
 
 	elevio.Init(*addrFlag, *floorsFlag)
 
@@ -114,8 +114,7 @@ func main() {
 	go om.Run(myID, buttonCh, clearCh, omLocalStateCh, peerStateCh, peerEventCh, ordersOutCh, orderInternal, orderIncoming, buttonLights)
 
 	// FSM
-	t := timer.NewDoorTimer()
-	go fsm.Run(myID, t, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLights)
+	go fsm.Run(myID, doorTimer, floorCh, ordersOutCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLights)
 
 	select {}
 }

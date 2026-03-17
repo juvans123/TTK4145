@@ -4,16 +4,17 @@ import (
 	"heis/config"
 	"heis/elevio"
 	om "heis/ordermanagement"
+	"time"
 )
 
-func openDoorAndStartTimer(doorTimer DoorTimer) {
+func openDoorAndStartTimer(doorTimer *time.Timer) {
 	elevio.SetDoorOpenLamp(true)
-	doorTimer.Reset(doorOpenDuration)
+	resetTimer(doorTimer, doorOpenDuration)
 }
 
-func closeDoorAndStopTimer(doorTimer DoorTimer) {
+func closeDoorAndStopTimer(doorTimer *time.Timer) {
 	elevio.SetDoorOpenLamp(false)
-	doorTimer.Stop()
+	stopTimerChannel(doorTimer)
 }
 
 func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
@@ -60,3 +61,20 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 
 	return ce
 }
+
+
+/* func ComputeClearEvent(orders *om.Orders, floor int, travelDirection config.TravelDirection) config.ClearEvent {
+	clearEvent := config.ClearEvent{Floor: floor}
+
+	if orders.Cab[floor] {
+		clearEvent.Buttons = append(clearEvent.Buttons, elevio.BT_Cab)
+	}
+	if shouldTakeOrderInCurrentTravelDir(orders, floor, config.BT_HallUp, travelDirection) {
+		clearEvent.Buttons = append(clearEvent.Buttons, elevio.BT_HallUp)
+	}
+	if shouldTakeOrderInCurrentTravelDir(orders, floor, config.BT_HallDown, travelDirection) {
+		clearEvent.Buttons = append(clearEvent.Buttons, elevio.BT_HallDown)
+	}
+
+	return clearEvent
+} */

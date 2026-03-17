@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-type DoorTimer interface {
+/* type DoorTimer interface {
 	Reset(d time.Duration)
 	Stop()
 	Timeout() <-chan struct{}
-}
+} */
 
 const (
 	doorOpenDuration = 3 * time.Second
@@ -22,7 +22,7 @@ const (
 
 func Run(
 	myID string,
-	doorTimer DoorTimer,
+	doorTimer *time.Timer,
 	floorCh <-chan int,
 	ordersFromOmCh <-chan om.Orders,
 	obstrCh <-chan bool,
@@ -72,7 +72,7 @@ func Run(
 
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if shouldTakeOrderInCurrentTravelDir(&e) && !prevAtFloor {
-					doorTimer.Reset(doorOpenDuration)
+					resetTimer(doorTimer, doorOpenDuration)
 					clearCh <-ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				}
 				publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
@@ -155,17 +155,17 @@ func Run(
 		case lightState := <-setButtonLight:
 			updateButtonLights(lightState)
 
-		case <-doorTimer.Timeout():
+		case <-doorTimer.C:
 			if e.Behavior != EB_DoorOpen {
 				continue
 			}
 			if e.Obstructed || stopPressed {
-				doorTimer.Reset(doorOpenDuration)
+				resetTimer(doorTimer, doorOpenDuration)
 				continue
 			}
 
 			if shouldTakeOrderInCurrentTravelDir(&e) {
-				doorTimer.Reset(doorOpenDuration)
+				resetTimer(doorTimer, doorOpenDuration)
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				continue
 			}
@@ -202,7 +202,7 @@ func Run(
 				stopObstructionTimer(obstructionTimer, &obstructionTimerActive)
 				e.Immobile = false
 				if e.Behavior == EB_DoorOpen {
-					doorTimer.Reset(doorOpenDuration)
+					resetTimer(doorTimer, doorOpenDuration)
 				}
 			}
 
@@ -230,7 +230,7 @@ func Run(
 				} 
 			} else {
 				if e.Behavior == EB_DoorOpen {
-					doorTimer.Reset(doorOpenDuration)
+					resetTimer(doorTimer, doorOpenDuration)
 					if e.Obstructed {
 						startObstructionTimer(obstructionTimer, &obstructionTimerActive)
 					}

@@ -2,36 +2,14 @@ package fsm
 
 import "time"
 
+/* type DoorTimer interface {
+	Reset(d time.Duration)
+	Stop()
+	Timeout() <-chan struct{}
+} */
 
-func startTimer(timer *time.Timer, timerIsActive *bool, duration time.Duration) {
-	if *timerIsActive {
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-	}
-
-	timer.Reset(duration)
-	*timerIsActive = true
-}
-
-func stopTimer(timer *time.Timer, timerIsActive *bool) {
-	if *timerIsActive {
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-	}
-
-	*timerIsActive = false
-}
-
-func newStoppedTimer(timeout time.Duration) (*time.Timer, bool) {
-	timer := time.NewTimer(timeout)
+func newStoppedTimer(duration time.Duration) (*time.Timer, bool) {
+	timer := time.NewTimer(duration)
 	if !timer.Stop() {
 		select {
 		case <-timer.C:
@@ -41,13 +19,48 @@ func newStoppedTimer(timeout time.Duration) (*time.Timer, bool) {
 	return timer, false
 }
 
+func NewStoppedDoorTimer() *time.Timer {
+	timer, _ := newStoppedTimer(doorOpenDuration)
+	return timer
+}
+
+func resetTimer(timer *time.Timer, duration time.Duration) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(duration)
+}
+
+func stopTimerChannel(timer *time.Timer) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+}
+
+func startTimer(timer *time.Timer, timerIsActive *bool, duration time.Duration) {
+	resetTimer(timer, duration)
+	*timerIsActive = true
+}
+
+func stopActiveTimer(timer *time.Timer, timerIsActive *bool) {
+	if *timerIsActive {
+		stopTimerChannel(timer)
+	}
+	*timerIsActive = false
+}
 
 func startMotorTimer(timer *time.Timer, timerIsActive *bool) {
 	startTimer(timer, timerIsActive, motorImmobileTimeout)
 }
 
 func stopMotorTimer(timer *time.Timer, timerIsActive *bool) {
-	stopTimer(timer, timerIsActive)
+	stopActiveTimer(timer, timerIsActive)
 }
 
 func startObstructionTimer(timer *time.Timer, timerIsActive *bool) {
@@ -55,5 +68,5 @@ func startObstructionTimer(timer *time.Timer, timerIsActive *bool) {
 }
 
 func stopObstructionTimer(timer *time.Timer, timerIsActive *bool) {
-	stopTimer(timer, timerIsActive)
+	stopActiveTimer(timer, timerIsActive)
 }
