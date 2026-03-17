@@ -28,12 +28,12 @@ func makeOrderKey(ownerID string, floor int, button config.ButtonType) OrderKey 
 	}
 }
 
-func copySeenBy(src map[string]bool) map[string]bool {
-	dst := make(map[string]bool)
-	for k, v := range src {
-		dst[k] = v
+func copySeenByMap(seenBy map[string]bool) map[string]bool {
+	copiedSeenBy := make(map[string]bool, len(seenBy))
+	for peerID, hasSeen := range seenBy {
+		copiedSeenBy[peerID] = hasSeen
 	}
-	return dst
+	return copiedSeenBy
 }
 
 func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {

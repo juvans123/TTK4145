@@ -201,7 +201,7 @@ mainLoop:
 					Floor:   key.Floor,
 					Button:  key.Button,
 					Phase:   localOrder.Phase,
-					SeenBy:  copySeenBy(localOrder.SeenBy),
+					SeenBy:  copySeenByMap(localOrder.SeenBy),
 				}
 			}
 		}
