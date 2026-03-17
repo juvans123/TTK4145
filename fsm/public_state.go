@@ -5,7 +5,6 @@ import (
     "heis/elevio"
 )
 
-
 func PublicStateFromFSM(e Elevator, myID string) config.ElevatorState {
 	cabCopy := make([]bool, len(e.Orders.Cab))
     copy(cabCopy, e.Orders.Cab)
