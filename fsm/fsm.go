@@ -231,7 +231,7 @@ func Run(
 					e.Dir = elevio.MD_Stop
 					e.Behavior = EB_Idle
 					// fmt.Printf("[FSM %s] Got orders, behavior=%v, floor=%d, traveldir=%v, direction=%v\n", myID, e.Behavior, e.Floor, e.TravelDir, e.Dir)
-					if om.HasOrderAtFloor(&e.Orders, e.Floor) {
+					if shouldTakeOrdersAtFloor(&e) {
 						e.Behavior = EB_DoorOpen
 						openDoorAndSetLamp(timer)
 						if e.Obstructed {
