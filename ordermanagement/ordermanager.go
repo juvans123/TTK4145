@@ -116,9 +116,11 @@ mainLoop:
 			}
 
 		case peer := <-peerAlivenessCh:
-			prev, exists := worldState.Alive[peer.PeerID]
-			if !exists || prev != peer.Alive {
-				worldState.Alive[peer.PeerID] = peer.Alive
+			previousLiveness := worldState.Alive[peer.PeerID]
+			incomingLiveness := peer.Alive
+
+			if previousLiveness != incomingLiveness {
+				worldState.Alive[peer.PeerID] = incomingLiveness
 				changed = true
 			}
 			
