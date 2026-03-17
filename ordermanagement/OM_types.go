@@ -38,7 +38,7 @@ type OrderInfo struct{
     Phase OrderPhase
 }
 
-type OrderTracker map[OrderKey]OrderInfo
+type OrderRegister map[OrderKey]OrderInfo
 
 
 type WorldState struct {

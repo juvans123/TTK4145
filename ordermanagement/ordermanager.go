@@ -18,22 +18,20 @@ func Run(
 	OrdersFromNetwork <-chan OrderMsg, // OM <- Network
 	setButtonLight chan<- config.LightState,
 ) {
+
+
+	//init?
 	worldState := NewWorldState()
-	localOrderView := make(OrderTracker)
+	localOrderView := make(OrderRegister)
 
-	orderBroadcast := time.NewTicker(100 * time.Millisecond)
-	defer orderBroadcast.Stop()
+	initLocalElevator(&worldState, myID)
 
-	worldState.Alive[myID] = true
-	worldState.States[myID] = config.ElevatorState{
-		ID:          myID,
-		Floor:       0,
-		Behaviour:   config.BehIdle,
-		Direction:   config.DirStop,
-		CabRequests: make([]bool, config.N_FLOORS),
-	}
+	initialOrders := buildMyLocalOrders(&worldState, myID)
+	ordersToFsmCh <- initialOrders
 
-	ordersToFsmCh <- buildMyLocalOrders(&worldState, myID)
+	orderBroadcastTicker := time.NewTicker(100 * time.Millisecond)
+	defer orderBroadcastTicker.Stop()
+	
 
 mainLoop:
 	for {
@@ -42,6 +40,7 @@ mainLoop:
 		select {
 		case btn := <-buttonPressedCh:
 
+			//lage en funksjon som gjør dette?
 			ownerID := ownerForButton(myID, btn.Button)
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
 			localOrder := localOrderView[key]
@@ -75,9 +74,11 @@ mainLoop:
 					continue
 				}
 
+				//lage en funksjon som gjør dette?
 				ownerID := ownerForButton(myID, clearInfo.button)
 				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
 				localOrder := localOrderView[key]
+			
 
 				if localOrder.Phase != Confirmed {
 					continue
@@ -136,6 +137,7 @@ mainLoop:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 			localOrder := localOrderView[key]
 
+
 			if localOrder.SeenBy == nil {
 				localOrder.SeenBy = make(map[string]bool)
 				localOrder.Phase = NoOrder
@@ -188,7 +190,7 @@ mainLoop:
 
 
 
-		case <-orderBroadcast.C:
+		case <-orderBroadcastTicker.C: //Må jeg vise hvilke kanaler jeg sender til??
 			for key, localOrder := range localOrderView {
 				if localOrder.Phase == NoOrder {
 					continue
@@ -212,6 +214,107 @@ mainLoop:
 
 //-------
 
+
+
+func initLocalElevator(ws *WorldState, myID string) {
+	ws.Alive[myID] = true
+
+	ws.States[myID] = config.ElevatorState{
+		ID:          myID,
+		Floor:       0,
+		Behaviour:   config.BehIdle,
+		Direction:   config.DirStop,
+		CabRequests: make([]bool, config.N_FLOORS),
+	}
+}
+
+func updateLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
+	localOrder := localOrderview[key]
+	localOrder.Phase = newPhase
+	localOrder.SeenBy = map[string]bool{myID: true}
+	localOrderview[key] = localOrder
+	return localOrder
+}
+
+func ownerForButton(myID string, button config.ButtonType) string {
+	if button == config.BT_Cab {
+		return myID
+	}
+	return ""
+}
+
+func makeOrderKey(ownerID string, floor int, button config.ButtonType) OrderKey {
+	return OrderKey{
+		OwnerID: ownerID,
+		Floor:   floor,
+		Button:  button,
+	}
+}
+
+func copySeenBy(src map[string]bool) map[string]bool {
+	dst := make(map[string]bool)
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
+	for id, isAlive := range alive {
+		if !isAlive {
+			continue
+		}
+		if !seenBy[id] {
+			return false
+		}
+	}
+	return true
+}
+
+func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
+	changed := false
+
+	switch key.Button {
+	case config.BT_Cab:
+		if _, ok := ws.ConfirmedCabOrders[key.OwnerID]; !ok {
+			ws.ConfirmedCabOrders[key.OwnerID] = make([]bool, config.N_FLOORS)
+		}
+		if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
+			ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
+			changed = true
+		}
+
+	case config.BT_HallUp, config.BT_HallDown:
+		if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
+			ws.ConfirmedHallOrders[key.Floor][key.Button] = true
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
+	changed := false
+
+	switch key.Button {
+	case config.BT_Cab:
+		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
+			if cabs[key.Floor] {
+				cabs[key.Floor] = false
+				changed = true
+			}
+		}
+
+	case config.BT_HallUp, config.BT_HallDown:
+		if ws.ConfirmedHallOrders[key.Floor][key.Button] {
+			ws.ConfirmedHallOrders[key.Floor][key.Button] = false
+			changed = true
+		}
+	}
+
+	return changed
+}
 
 func NewOrders(numFloors int) Orders {
 	orders := Orders{
