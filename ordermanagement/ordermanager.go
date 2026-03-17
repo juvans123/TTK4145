@@ -85,12 +85,12 @@ mainLoop:
 					continue
 				}
 
-				// Sett til Served lokalt
+				
 				info.Phase = Served
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
-				// Clear worldstate lokalt (idempotent)
+			
 				if clearOrderInWorldState(&ws, key) {
 					changed = true
 				}
@@ -99,9 +99,7 @@ mainLoop:
 				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 					delete(localOrderView, key)
 				}
-				/* if key.Button == config.BT_Cab && key.OwnerID == myID {
-					delete(localOrderView, key)
-				} */
+				
 			}
 
 		case st := <-localStateCh:
@@ -144,9 +142,8 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
 			}
-			//fmt.Printf("[OM %s] BEFORE MERGE key=%+v incomingPhase=%v localPhase=%v incomingSeenBy=%+v ws.Alive=%+v\n", myID, key, peerOrder.Phase, info.Phase, peerOrder.SeenBy, ws.Alive)
+		
 
-			// Vanlig fase-sammenligning
 			if peerOrder.Phase > info.Phase {
 				info.Phase = peerOrder.Phase
 				info.SeenBy = make(map[string]bool)
@@ -178,14 +175,12 @@ mainLoop:
 				changed = true
 
 			case Confirmed:
-				// Recovery/rejoin: sørg for at WorldState er i sync
+				
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
-				//localOrderView[key] = info
 
 			case Served:
-				// Idempotent clear på alle noder
 				if clearOrderInWorldState(&ws, key) {
 					changed = true
 				}
@@ -198,7 +193,6 @@ mainLoop:
 				if info.Phase == NoOrder {
 					continue
 				}
-				//fmt.Printf("[OM %s] TX ORDER key=%+v phase=%v seenBy=%+v\n",myID, key, info.Phase, info.SeenBy)
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
@@ -212,7 +206,6 @@ mainLoop:
 		if changed {
 			setButtonLight <- buildLightState(&ws, myID)
 			orders := buildMyLocalOrders(&ws, myID)
-			//fmt.Printf("[OM %s] ordersOut cab%v hall=%v\n", myID, orders.Cab, orders.Hall)
 			ordersOutCh <- orders
 		}
 	}
@@ -243,18 +236,6 @@ func copySeenBy(src map[string]bool) map[string]bool {
 	return dst
 }
 
-/* func isConfirmedInWorldState(ws *WorldState, key OrderKey) bool {
-	switch key.Button {
-	case config.BT_Cab:
-		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
-			return cabs[key.Floor]
-		}
-		return false
-	case config.BT_HallUp, config.BT_HallDown:
-		return ws.ConfirmedHallOrders[key.Floor][key.Button]
-	}
-	return false
-} */
 
 func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
 	for id, isAlive := range alive {
@@ -313,7 +294,7 @@ func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
 	return changed
 }
 
-// initialisere
+
 func NewOrders(numFloors int) Orders {
 	orders := Orders{
 		Cab:  make([]bool, numFloors),
@@ -341,7 +322,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildCabOnlyOrders(ws, myID)
 	}
-	//fmt.Printf("MyAssignedHall: %v\n", myAssignedHall)
+	
 	myLocalOrders := NewOrders(config.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
