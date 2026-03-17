@@ -59,8 +59,6 @@ mainLoop:
 			}
 
 		case clear := <-clearCh:
-
-
 			clears := []struct {
 				shouldClear bool
 				button      config.ButtonType
