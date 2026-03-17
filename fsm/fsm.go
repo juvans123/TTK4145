@@ -1,18 +1,11 @@
 package fsm
 
 import (
-	//"fmt"
 	"heis/config"
 	"heis/elevio"
 	om "heis/ordermanagement"
 	"time"
 )
-
-/* type DoorTimer interface {
-	Reset(d time.Duration)
-	Stop()
-	Timeout() <-chan struct{}
-} */
 
 const (
 	doorOpenDuration = 3 * time.Second
