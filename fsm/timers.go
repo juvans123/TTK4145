@@ -2,12 +2,6 @@ package fsm
 
 import "time"
 
-/* type DoorTimer interface {
-	Reset(d time.Duration)
-	Stop()
-	Timeout() <-chan struct{}
-} */
-
 func newStoppedTimer(duration time.Duration) (*time.Timer, bool) {
 	timer := time.NewTimer(duration)
 	if !timer.Stop() {

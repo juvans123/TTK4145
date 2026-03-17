@@ -104,7 +104,6 @@ func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 }
 
 
-//hvorfor har vi denne her egentlig
 func buildLightState(ws *WorldState, myID string) config.LightState {
 	ls := config.LightState{
 		Cab: make([]bool, config.N_FLOORS),

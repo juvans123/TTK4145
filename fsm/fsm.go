@@ -29,7 +29,7 @@ func Run(
 		Dir:        elevio.MD_Down,
 		TravelDir:  config.TD_Down,
 		Behavior:   EB_Moving,
-		Orders:     om.NewOrders(4),
+		Orders:     om.NewOrders(config.N_FLOORS),
 		Obstructed: false,
 		Immobile:   false,
 	}
