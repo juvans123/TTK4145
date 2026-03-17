@@ -18,22 +18,20 @@ func Run(
 	OrdersFromNetwork <-chan OrderMsg, // OM <- Network
 	setButtonLight chan<- config.LightState,
 ) {
+
+
+	//init?
 	worldState := NewWorldState()
-	localOrderView := make(OrderTracker)
+	localOrderView := make(OrderRegister)
 
-	orderBroadcast := time.NewTicker(100 * time.Millisecond)
-	defer orderBroadcast.Stop()
+	initLocalElevator(&worldState, myID)
 
-	worldState.Alive[myID] = true
-	worldState.States[myID] = config.ElevatorState{
-		ID:          myID,
-		Floor:       0,
-		Behaviour:   config.BehIdle,
-		Direction:   config.DirStop,
-		CabRequests: make([]bool, config.N_FLOORS),
-	}
+	initialOrders := buildMyLocalOrders(&worldState, myID)
+	ordersToFsmCh <- initialOrders
 
-	ordersToFsmCh <- buildMyLocalOrders(&worldState, myID)
+	orderBroadcastTicker := time.NewTicker(100 * time.Millisecond)
+	defer orderBroadcastTicker.Stop()
+	
 
 mainLoop:
 	for {
@@ -42,6 +40,7 @@ mainLoop:
 		select {
 		case btn := <-buttonPressedCh:
 
+			//lage en funksjon som gjør dette?
 			ownerID := ownerForButton(myID, btn.Button)
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
 			localOrder := localOrderView[key]
@@ -75,9 +74,11 @@ mainLoop:
 					continue
 				}
 
+				//lage en funksjon som gjør dette?
 				ownerID := ownerForButton(myID, clearInfo.button)
 				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
 				localOrder := localOrderView[key]
+			
 
 				if localOrder.Phase != Confirmed {
 					continue
@@ -136,6 +137,7 @@ mainLoop:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 			localOrder := localOrderView[key]
 
+
 			if localOrder.SeenBy == nil {
 				localOrder.SeenBy = make(map[string]bool)
 				localOrder.Phase = NoOrder
@@ -188,7 +190,7 @@ mainLoop:
 
 
 
-		case <-orderBroadcast.C:
+		case <-orderBroadcastTicker.C: //Må jeg vise hvilke kanaler jeg sender til??
 			for key, localOrder := range localOrderView {
 				if localOrder.Phase == NoOrder {
 					continue
@@ -213,11 +215,24 @@ mainLoop:
 //-------
 
 
-func updateLocalOrderPhase(view OrderTracker, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
-	localOrder := view[key]
+
+func initLocalElevator(ws *WorldState, myID string) {
+	ws.Alive[myID] = true
+
+	ws.States[myID] = config.ElevatorState{
+		ID:          myID,
+		Floor:       0,
+		Behaviour:   config.BehIdle,
+		Direction:   config.DirStop,
+		CabRequests: make([]bool, config.N_FLOORS),
+	}
+}
+
+func updateLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
+	localOrder := localOrderview[key]
 	localOrder.Phase = newPhase
 	localOrder.SeenBy = map[string]bool{myID: true}
-	view[key] = localOrder
+	localOrderview[key] = localOrder
 	return localOrder
 }
 
