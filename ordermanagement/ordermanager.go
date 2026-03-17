@@ -18,14 +18,14 @@ func Run(
 	OrderInCh <-chan OrderMsg, // OM <- Network
 	setButtonLight chan<- config.LightState,
 ) {
-	ws := NewWorldState()
+	worldState := NewWorldState()
 	localOrderView := make(OrderTracker)
 
-	SendTicker := time.NewTicker(100 * time.Millisecond)
-	defer SendTicker.Stop()
+	orderBroadcast := time.NewTicker(100 * time.Millisecond)
+	defer orderBroadcast.Stop()
 
-	ws.Alive[myID] = true
-	ws.States[myID] = config.ElevatorState{
+	worldState.Alive[myID] = true
+	worldState.States[myID] = config.ElevatorState{
 		ID:          myID,
 		Floor:       0,
 		Behaviour:   config.BehIdle,
@@ -33,7 +33,7 @@ func Run(
 		CabRequests: make([]bool, config.N_FLOORS),
 	}
 
-	ordersOutCh <- buildMyLocalOrders(&ws, myID)
+	ordersOutCh <- buildMyLocalOrders(&worldState, myID)
 
 mainLoop:
 	for {
@@ -41,25 +41,26 @@ mainLoop:
 
 		select {
 		case btn := <-buttonCh:
+
 			ownerID := ownerForButton(myID, btn.Button)
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
+			localOrder := localOrderView[key]
 
-			info := localOrderView[key]
-			if info.Phase == Unconfirmed || info.Phase == Confirmed {
+			if localOrder.Phase == Unconfirmed || localOrder.Phase == Confirmed {
 				continue mainLoop
 			}
 
-			info.Phase = Unconfirmed
-			info.SeenBy = map[string]bool{myID: true}
-			localOrderView[key] = info
+			localOrder.Phase = Unconfirmed
+			localOrder.SeenBy = map[string]bool{myID: true}
+			localOrderView[key] = localOrder
 
-			if allAliveHaveSeen(info.SeenBy, ws.Alive) {
-				if confirmOrderInWorldState(&ws, key) {
+			if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
+				if confirmOrderInWorldState(&worldState, key) {
 					changed = true
 				}
-				info.Phase = Confirmed
-				info.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = info
+				localOrder.Phase = Confirmed
+				localOrder.SeenBy = map[string]bool{myID: true}
+				localOrderView[key] = localOrder
 			}
 
 		case cl := <-clearCh:
@@ -79,53 +80,53 @@ mainLoop:
 
 				ownerID := ownerForButton(myID, clearInfo.button)
 				key := makeOrderKey(ownerID, cl.Floor, clearInfo.button)
-				info := localOrderView[key]
+				localOrder := localOrderView[key]
 
-				if info.Phase != Confirmed {
+				if localOrder.Phase != Confirmed {
 					continue
 				}
 
-				info.Phase = Served
-				info.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = info
+				localOrder.Phase = Served
+				localOrder.SeenBy = map[string]bool{myID: true}
+				localOrderView[key] = localOrder
 
-				if clearOrderInWorldState(&ws, key) {
+				if clearOrderInWorldState(&worldState, key) {
 					changed = true
 				}
 				changed = true
 
-				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
+				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 					delete(localOrderView, key)
 				}
 
 			}
 
-		case st := <-localStateCh:
-			prev := ws.States[myID]
-			st.ID = myID
-			ws.States[st.ID] = st
+		case newLocalState := <-localStateCh:
+			prevLocalState := worldState.States[myID]
+			newLocalState.ID = myID  //fjerne denne linjer og skrive myID direkte i linjen under
+			worldState.States[newLocalState.ID] = newLocalState
 
-			if prev.Immobile != st.Immobile {
+			if prevLocalState.Immobile != newLocalState.Immobile {
 				changed = true
 			}
 
-		case pst := <-peerStateCh:
-			prev := ws.States[pst.ID]
-			ws.States[pst.ID] = pst
+		case newPeerState := <-peerStateCh:
+			prevPeerState := worldState.States[newPeerState.ID]
+			worldState.States[newPeerState.ID] = newPeerState
 
-			if prev.Immobile != pst.Immobile {
+			if prevPeerState.Immobile != newPeerState.Immobile {
 				changed = true
 			}
 
-		case pe := <-peerEventCh:
-			prev, exists := ws.Alive[pe.PeerID]
-			if !exists || prev != pe.Alive {
-				ws.Alive[pe.PeerID] = pe.Alive
+		case peer := <-peerEventCh:
+			prev, exists := worldState.Alive[peer.PeerID]
+			if !exists || prev != peer.Alive {
+				worldState.Alive[peer.PeerID] = peer.Alive
 				changed = true
 			}
-			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
+			
 
-			if pe.Alive {
+			if peer.Alive {
 				for key, info := range localOrderView {
 					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
 						delete(localOrderView, key)
@@ -133,77 +134,83 @@ mainLoop:
 				}
 			}
 
+		//her vil jeg kalle kanalen peerAlivenesschange, inni peerevent så skal jeg fjerne peer før id, og døpe om peerevent til peeralivness
+
 		case peerOrder := <-OrderInCh:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
-			info := localOrderView[key]
-			if info.SeenBy == nil {
-				info.SeenBy = make(map[string]bool)
-				info.Phase = NoOrder
+			localOrder := localOrderView[key]
+
+			if localOrder.SeenBy == nil {
+				localOrder.SeenBy = make(map[string]bool)
+				localOrder.Phase = NoOrder
 			}
 
-			if peerOrder.Phase > info.Phase {
-				info.Phase = peerOrder.Phase
-				info.SeenBy = make(map[string]bool)
-			} else if peerOrder.Phase < info.Phase {
-				//localOrderView[key] = info
+			if peerOrder.Phase > localOrder.Phase {
+				localOrder.Phase = peerOrder.Phase
+				localOrder.SeenBy = make(map[string]bool)
+			} else if peerOrder.Phase < localOrder.Phase {
 				continue mainLoop
 			}
 
 			for id, seen := range peerOrder.SeenBy {
 				if seen {
-					info.SeenBy[id] = true
+					localOrder.SeenBy[id] = true
 				}
 			}
-			info.SeenBy[myID] = true
-			localOrderView[key] = info
+			localOrder.SeenBy[myID] = true
+			localOrderView[key] = localOrder //heller skriv localOrderView[key].seenBy[myID] = true, og fjerne linjen over
 
-			if info.Phase == Unconfirmed && !allAliveHaveSeen(info.SeenBy, ws.Alive) {
+			if localOrder.Phase == Unconfirmed && !allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 				continue mainLoop
 			}
 
-			switch info.Phase {
+
+			switch localOrder.Phase {
 			case Unconfirmed:
-				if confirmOrderInWorldState(&ws, key) {
+				if confirmOrderInWorldState(&worldState, key) {
 					changed = true
 				}
-				info.Phase = Confirmed
-				info.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = info
+				localOrder.Phase = Confirmed
+				localOrder.SeenBy = map[string]bool{myID: true}
+				localOrderView[key] = localOrder
 				changed = true
+
+				//lage update fase funksjoner
 
 			case Confirmed:
 
-				if confirmOrderInWorldState(&ws, key) {
+				if confirmOrderInWorldState(&worldState, key) {
 					changed = true
 				}
 
 			case Served:
-				if clearOrderInWorldState(&ws, key) {
+				if clearOrderInWorldState(&worldState, key) {
 					changed = true
 				}
 				delete(localOrderView, key)
 				changed = true
 			}
 
-		case <-SendTicker.C:
-			for key, info := range localOrderView {
-				if info.Phase == NoOrder {
+
+
+		case <-orderBroadcast.C:
+			for key, localOrder := range localOrderView {
+				if localOrder.Phase == NoOrder {
 					continue
 				}
 				OrderOutCh <- OrderMsg{
 					OwnerID: key.OwnerID,
 					Floor:   key.Floor,
 					Button:  key.Button,
-					Phase:   info.Phase,
-					SeenBy:  copySeenBy(info.SeenBy),
+					Phase:   localOrder.Phase,
+					SeenBy:  copySeenBy(localOrder.SeenBy),
 				}
 			}
 		}
 
 		if changed {
-			setButtonLight <- buildLightState(&ws, myID)
-			orders := buildMyLocalOrders(&ws, myID)
-			ordersOutCh <- orders
+			setButtonLight <- buildLightState(&worldState, myID)
+			ordersOutCh <- buildMyLocalOrders(&worldState, myID)
 		}
 	}
 }
