@@ -85,12 +85,10 @@ mainLoop:
 					continue
 				}
 
-				
 				info.Phase = Served
 				info.SeenBy = map[string]bool{myID: true}
 				localOrderView[key] = info
 
-			
 				if clearOrderInWorldState(&ws, key) {
 					changed = true
 				}
@@ -99,7 +97,7 @@ mainLoop:
 				if allAliveHaveSeen(info.SeenBy, ws.Alive) {
 					delete(localOrderView, key)
 				}
-				
+
 			}
 
 		case st := <-localStateCh:
@@ -142,7 +140,6 @@ mainLoop:
 				info.SeenBy = make(map[string]bool)
 				info.Phase = NoOrder
 			}
-		
 
 			if peerOrder.Phase > info.Phase {
 				info.Phase = peerOrder.Phase
@@ -175,7 +172,7 @@ mainLoop:
 				changed = true
 
 			case Confirmed:
-				
+
 				if confirmOrderInWorldState(&ws, key) {
 					changed = true
 				}
@@ -236,7 +233,6 @@ func copySeenBy(src map[string]bool) map[string]bool {
 	return dst
 }
 
-
 func allAliveHaveSeen(seenBy map[string]bool, alive map[string]bool) bool {
 	for id, isAlive := range alive {
 		if !isAlive {
@@ -294,7 +290,6 @@ func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
 	return changed
 }
 
-
 func NewOrders(numFloors int) Orders {
 	orders := Orders{
 		Cab:  make([]bool, numFloors),
@@ -322,7 +317,7 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	if !ok {
 		return buildCabOnlyOrders(ws, myID)
 	}
-	
+
 	myLocalOrders := NewOrders(config.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
