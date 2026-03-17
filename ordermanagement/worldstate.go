@@ -12,8 +12,7 @@ func NewWorldState() WorldState {
 	}
 }
 
-func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
-	changed := false
+func confirmOrderInWorldState(ws *WorldState, key OrderKey) {
 
 	switch key.Button {
 	case config.BT_Cab:
@@ -22,37 +21,29 @@ func confirmOrderInWorldState(ws *WorldState, key OrderKey) bool {
 		}
 		if !ws.ConfirmedCabOrders[key.OwnerID][key.Floor] {
 			ws.ConfirmedCabOrders[key.OwnerID][key.Floor] = true
-			changed = true
+			
 		}
 
 	case config.BT_HallUp, config.BT_HallDown:
 		if !ws.ConfirmedHallOrders[key.Floor][key.Button] {
 			ws.ConfirmedHallOrders[key.Floor][key.Button] = true
-			changed = true
+			
 		}
 	}
-
-	return changed
 }
 
-func clearOrderInWorldState(ws *WorldState, key OrderKey) bool {
-	changed := false
-
+func clearOrderInWorldState(ws *WorldState, key OrderKey) {
 	switch key.Button {
 	case config.BT_Cab:
 		if cabs, ok := ws.ConfirmedCabOrders[key.OwnerID]; ok {
 			if cabs[key.Floor] {
 				cabs[key.Floor] = false
-				changed = true
 			}
 		}
 
 	case config.BT_HallUp, config.BT_HallDown:
 		if ws.ConfirmedHallOrders[key.Floor][key.Button] {
 			ws.ConfirmedHallOrders[key.Floor][key.Button] = false
-			changed = true
 		}
 	}
-
-	return changed
 }

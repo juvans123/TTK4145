@@ -51,16 +51,16 @@ mainLoop:
 			localOrder = setLocalOrderPhase(localOrderView, key, Unconfirmed, myID)
 
 			if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
-				if confirmOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				confirmOrderInWorldState(&worldState, key)
+				changed = true
+				
 				
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 			}
 
 		case clear := <-clearCh:
 
-			
+
 			clears := []struct {
 				shouldClear bool
 				button      config.ButtonType
@@ -87,9 +87,8 @@ mainLoop:
 
 				localOrder = setLocalOrderPhase(localOrderView, key, Served, myID)
 
-				if clearOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				clearOrderInWorldState(&worldState, key)
+				
 				changed = true
 
 				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
@@ -170,23 +169,20 @@ mainLoop:
 
 			switch localOrder.Phase {
 			case Unconfirmed:
-				if confirmOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				confirmOrderInWorldState(&worldState, key)
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 				changed = true
 
 
 			case Confirmed:
-
-				if confirmOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				confirmOrderInWorldState(&worldState, key)
+				changed = true
+				
 
 			case Served:
-				if clearOrderInWorldState(&worldState, key) {
-					changed = true
-				}
+				clearOrderInWorldState(&worldState, key)
+				changed = true
+				
 				delete(localOrderView, key)
 				changed = true
 			}
