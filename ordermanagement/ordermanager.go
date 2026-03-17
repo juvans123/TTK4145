@@ -116,6 +116,7 @@ mainLoop:
 			}
 
 		case peer := <-peerAlivenessCh:
+					//her vil jeg kalle kanalen peerAlivenesschange, inni peerevent så skal jeg fjerne peer før id, og døpe om peerevent til peeralivness
 			previousLiveness := worldState.Alive[peer.PeerID]
 			incomingLiveness := peer.Alive
 
@@ -124,7 +125,7 @@ mainLoop:
 				changed = true
 			}
 			
-
+			//denne må fikses!! chat melder at den er smart, men den er litt random også- så vabnskelig å navngi
 			if peer.Alive {
 				for key, info := range localOrderView {
 					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
@@ -133,7 +134,7 @@ mainLoop:
 				}
 			}
 
-		//her vil jeg kalle kanalen peerAlivenesschange, inni peerevent så skal jeg fjerne peer før id, og døpe om peerevent til peeralivness
+
 
 		case peerOrder := <-OrdersFromNetwork:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
@@ -174,7 +175,6 @@ mainLoop:
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 				changed = true
 
-				//lage update fase funksjoner
 
 			case Confirmed:
 
@@ -192,7 +192,7 @@ mainLoop:
 
 
 
-		case <-orderBroadcastTicker.C: //Må jeg vise hvilke kanaler jeg sender til??
+		case <-orderBroadcastTicker.C: 
 			for key, localOrder := range localOrderView {
 				if localOrder.Phase == NoOrder {
 					continue
