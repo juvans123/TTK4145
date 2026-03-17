@@ -63,15 +63,11 @@ func Run(
 				publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
 				continue
 			}
-
-			if e.Immobile && om.HasOrderAtFloor(&e.Orders, e.Floor) && elevio.GetFloor() == -1 {
+			lastKnownFloor := e.Floor
+			isBetweenFloors := elevio.GetFloor() == -1
+			if e.Immobile && om.HasOrderAtFloor(&e.Orders, lastKnownFloor) && isBetweenFloors {
 				e.Behavior = EB_Moving
-				switch e.TravelDir {
-				case config.TD_Up:
-					setMotor(elevio.MD_Down)
-				case config.TD_Down:
-					setMotor(elevio.MD_Up)
-				}
+				setMotor(resumeTowardsLastKnownFloor(e.TravelDir))
 			}
 
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {

@@ -67,6 +67,16 @@ func chooseDirection(e *Elevator) (config.TravelDirection, Behavior, elevio.Moto
 	return e.TravelDir, EB_Idle, elevio.MD_Stop
 }
 
+func resumeTowardsLastKnownFloor(travelDir config.TravelDirection) elevio.MotorDirection {
+	switch travelDir {
+	case config.TD_Up:
+		return elevio.MD_Down
+	case config.TD_Down:
+		return elevio.MD_Up
+	default:
+		return elevio.MD_Stop
+	}
+}
 /* func stopMovement(
 	e *Elevator,
 	motorImmobileTimer *time.Timer,
