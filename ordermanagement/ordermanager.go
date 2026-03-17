@@ -97,6 +97,7 @@ mainLoop:
 			}
 
 		case newLocalState := <-localStateCh:
+			
 			prevLocalState := worldState.States[myID]
 			newLocalState.ID = myID  //fjerne denne linjer og skrive myID direkte i linjen under
 			worldState.States[newLocalState.ID] = newLocalState
