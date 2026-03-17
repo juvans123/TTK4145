@@ -50,17 +50,14 @@ mainLoop:
 				continue mainLoop
 			}
 
-			localOrder.Phase = Unconfirmed
-			localOrder.SeenBy = map[string]bool{myID: true}
-			localOrderView[key] = localOrder
+			localOrder = updateLocalOrderPhase(localOrderView, key, Unconfirmed, myID)
 
 			if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 				if confirmOrderInWorldState(&worldState, key) {
 					changed = true
 				}
-				localOrder.Phase = Confirmed
-				localOrder.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = localOrder
+				
+				localOrder = updateLocalOrderPhase(localOrderView, key, Confirmed, myID)
 			}
 
 		case cl := <-clearCh:
@@ -86,9 +83,7 @@ mainLoop:
 					continue
 				}
 
-				localOrder.Phase = Served
-				localOrder.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = localOrder
+				localOrder = updateLocalOrderPhase(localOrderView, key, Served, myID)
 
 				if clearOrderInWorldState(&worldState, key) {
 					changed = true
@@ -157,6 +152,7 @@ mainLoop:
 					localOrder.SeenBy[id] = true
 				}
 			}
+
 			localOrder.SeenBy[myID] = true
 			localOrderView[key] = localOrder //heller skriv localOrderView[key].seenBy[myID] = true, og fjerne linjen over
 
@@ -170,9 +166,7 @@ mainLoop:
 				if confirmOrderInWorldState(&worldState, key) {
 					changed = true
 				}
-				localOrder.Phase = Confirmed
-				localOrder.SeenBy = map[string]bool{myID: true}
-				localOrderView[key] = localOrder
+				localOrder = updateLocalOrderPhase(localOrderView, key, Confirmed, myID)
 				changed = true
 
 				//lage update fase funksjoner
@@ -216,6 +210,15 @@ mainLoop:
 }
 
 //-------
+
+
+func updateLocalOrderPhase(view OrderTracker, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
+	localOrder := view[key]
+	localOrder.Phase = newPhase
+	localOrder.SeenBy = map[string]bool{myID: true}
+	view[key] = localOrder
+	return localOrder
+}
 
 func ownerForButton(myID string, button config.ButtonType) string {
 	if button == config.BT_Cab {
