@@ -2,7 +2,6 @@ package fsm
 
 import (
 	"heis/elevio"
-	om "heis/ordermanagement"
 	"time"
 )
 
@@ -17,7 +16,7 @@ func elevatorInit(e *Elevator) {
 		e.Behavior = EB_Idle
 		return
 	}
-	
+
 	setMotor(elevio.MD_Down)
 
 	for {
