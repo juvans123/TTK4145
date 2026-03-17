@@ -11,7 +11,10 @@ import (
 func shouldStop(e *Elevator) bool {
 	floor := e.Floor
 	
-	if (e.Dir == elevio.MD_Down && floor == 0) || (e.Dir == elevio.MD_Up && floor == config.N_FLOORS-1) {
+	if floor == 0 && (e.Dir == elevio.MD_Down || e.Dir == elevio.MD_Stop) {
+		return true
+	}
+	if floor == config.N_FLOORS-1 && (e.Dir == elevio.MD_Up || e.Dir == elevio.MD_Stop) {
 		return true
 	}
 
