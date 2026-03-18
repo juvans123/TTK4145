@@ -1,23 +1,25 @@
-
 package supervisor
 
-import "heis/config"
+import (
+	"heis/config"
+	"time"
+)
 
 type PeerState int
 
 const (
-	Alive PeerState = iota
-	SuspectedDead
-	Dead
+	PeerStateAlive PeerState = iota
+	PeerStateSuspected
+	PeerStateDead
 )
-
+//KUN FOR PRINTING
 func (ps PeerState) String() string {
 	switch ps {
-	case Alive:
+	case PeerStateAlive:
 		return "Alive"
-	case SuspectedDead:
+	case PeerStateSuspected:
 		return "SuspectedDead"
-	case Dead:
+	case PeerStateDead:
 		return "Dead"
 	default:
 		return "Unknown"
@@ -30,17 +32,10 @@ type Heartbeat struct {
 	SuspectedPeers []string
 }
 
-// Config bruker heis/config.SupervisorConfig som kilde
 type Config struct {
 	MyID             string
 	SupervisorConfig config.SupervisorConfig
 }
-
-/*
-type PeerEvent struct {
-	PeerID string
-	Alive  bool
-} */
 
 func NewConfig(myID string) Config {
 	return Config{
@@ -49,7 +44,36 @@ func NewConfig(myID string) Config {
 	}
 }
 
+type peerUpdate struct {
+	peerID   string
+	newState PeerState
+	oldState PeerState
+}
+
+type peerInfo struct {
+	lastReceivedCounter uint8
+	lastSeenAtTick      uint8 //localTickWhenLastSeen
+	state               PeerState
+	suspectedBy         map[string]bool
+}
+
+
+func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
+	return peerUpdate{
+		peerID:   peerID,
+		newState: PeerStateAlive,
+		oldState: oldState,
+	}
+}
+
+func toPeerEvent(u peerUpdate) config.PeerEvent {
+	return config.PeerEvent{
+		PeerID: u.peerID,
+		Alive:  u.newState == PeerStateAlive,
+	}
+}
+
 // Hjelpere for å lese konfig-verdier
-func (c Config) tickInterval() interface{} { return c.SupervisorConfig.TickInterval }
+func (c Config) tickInterval() time.Duration { return c.SupervisorConfig.TickInterval }
 func (c Config) suspectThreshold() int     { return c.SupervisorConfig.SuspectThreshold }
 func (c Config) consensusRequired() int    { return c.SupervisorConfig.ConsensusRequired }
