@@ -1,103 +1,110 @@
 package supervisor
 
+// VURDER HANDLEINCOMING HEARTBEATS
+
 import (
 	"context"
 	"fmt"
-	"heis/config"
+	"heis/types"
 	"time"
 )
 
 type Supervisor struct {
-	config      Config
-	myCounter   uint8
-	hbTx        chan<- Heartbeat
-	hbRx        <-chan Heartbeat
-	PeerEventTx chan<- config.PeerEvent
+	init                 SupervisorInit
+	localTickCount       uint8
+	outgoingHeartbeatsCh chan<- Heartbeat
+	incomingHeartbeatsCh <-chan Heartbeat
+	peerAlivenessCh      chan<- types.PeerAliveness
 }
 
 func New(
-	cfg Config,
-	hbTx chan<- Heartbeat,
-	hbRx <-chan Heartbeat,
-	peerEventTx chan<- config.PeerEvent,
+	init SupervisorInit,
+	outgoingHeartbeatsCh chan<- Heartbeat,
+	incomingHeartbeatsCh <-chan Heartbeat,
+	peerAlivenessCh chan<- types.PeerAliveness,
 ) *Supervisor {
 	return &Supervisor{
-		config:      cfg,
-		myCounter:   0,
-		hbTx:        hbTx,
-		hbRx:        hbRx,
-		PeerEventTx: peerEventTx,
+		init:                 init,
+		localTickCount:       0,
+		outgoingHeartbeatsCh: outgoingHeartbeatsCh,
+		incomingHeartbeatsCh: incomingHeartbeatsCh,
+		peerAlivenessCh:      peerAlivenessCh,
 	}
 }
 
-func (s *Supervisor) MonitorPeerHealth(ctx context.Context) error {
-	ticker := time.NewTicker(s.config.SupervisorConfig.TickInterval)
+func (s *Supervisor) MonitorPeerHealth(context context.Context) error {
+	ticker := time.NewTicker(s.init.TickInterval)
 	defer ticker.Stop()
 	tracker := NewPeerTracker(
-		s.config.SupervisorConfig.SuspectThreshold,
-		s.config.SupervisorConfig.ConsensusRequired,
+		s.init.TicksBeforeSuspected,
+		s.init.ConsensusRequired,
 	)
 
-	fmt.Printf("[Supervisor %s] Starting\n", s.config.MyID)
+	fmt.Printf("[Supervisor %s] Starting\n", s.init.MyID)
 
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-context.Done():
+			return context.Err()
+
 		case <-ticker.C:
-			s.handleTick(tracker)
-		case hb := <-s.hbRx:
+			s.localTickCount++
+			s.sendHeartbeat(tracker)
+			updates := s.detectAndConfirmPeerFailures(tracker)
+			s.publishAlivenessTransistion(updates)
+
+		case hb := <-s.incomingHeartbeatsCh:
 			s.handleIncomingHeartbeat(hb, tracker)
 		}
 	}
 }
 
-func (s *Supervisor) handleTick(tracker *peerTracker) {
-	s.myCounter++
-	s.sendHeartbeat(tracker)
-	updates := tracker.detectHeartbeatTimeouts(s.myCounter)
-	s.sendEvents(updates)
+func (s *Supervisor) detectAndConfirmPeerFailures(tracker *PeerTracker) []peerUpdate {
+	timeoutUpdates := tracker.markTimedOutPeersAsSuspected(s.localTickCount)
+	deadUpdates := tracker.confirmDeadPeersIfConsensus()
+	s.logStateTransitions(timeoutUpdates)
+	s.logStateTransitions(deadUpdates)
+	return append(timeoutUpdates, deadUpdates...)
 }
 
-func (s *Supervisor) sendHeartbeat(tracker *peerTracker) {
+func (s *Supervisor) sendHeartbeat(tracker *PeerTracker) {
 	hb := Heartbeat{
-		PeerID:         s.config.MyID,
-		Counter:        s.myCounter,
-		SuspectedPeers: tracker.getSuspectedPeers(),
+		PeerID:         s.init.MyID,
+		Counter:        s.localTickCount,
+		SuspectedPeers: tracker.getNonAlivePeers(),
 	}
-	select {
-	case s.hbTx <- hb:
-	default:
-	}
+
+	s.outgoingHeartbeatsCh <- hb
+
 }
 
-func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *peerTracker) {
-	if hb.PeerID == s.config.MyID {
+func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *PeerTracker) {
+	if hb.PeerID == s.init.MyID {
 		return
 	}
-	updates := tracker.processHeartbeat(hb, s.config.MyID, s.myCounter)
-	s.sendEvents(updates)
+	updates := tracker.receivePeerHeartbeat(hb, s.init.MyID, s.localTickCount)
+	s.publishAlivenessTransistion(updates)
+	s.logStateTransitions(updates)
+
 }
 
-func (s *Supervisor) sendEvents(updates []peerUpdate) {
+func (s *Supervisor) logStateTransitions(updates []peerUpdate) {
 	for _, u := range updates {
 		fmt.Printf("[Supervisor %s] %s: %s -> %s\n",
-			s.config.MyID, u.peerID, u.oldState, u.newState)
-
-		if u.newState == SuspectedDead{ //Vi hopper over å sende suspecteddead
-			continue
-		}
-
-		select {
-		case s.PeerEventTx <- toPeerEvent(u):
-		default:
-		}
+			s.init.MyID, u.peerID, u.oldState, u.newState)
 	}
 }
 
-func toPeerEvent(u peerUpdate) config.PeerEvent {
-	return config.PeerEvent{
-		PeerID: u.peerID,
-		Alive:  u.newState == Alive,
+func (s *Supervisor) publishAlivenessTransistion(updates []peerUpdate) {
+	for _, u := range updates {
+
+		s.peerAlivenessCh <- formatPeerAliveness(u)
+	}
+}
+
+func formatPeerAliveness(update peerUpdate) types.PeerAliveness {
+	return types.PeerAliveness{
+		ID:      update.peerID,
+		IsAlive: update.newState == PeerStateAlive,
 	}
 }

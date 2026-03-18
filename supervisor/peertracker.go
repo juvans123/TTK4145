@@ -1,172 +1,144 @@
 package supervisor
 
-//import "fmt"
+import (
+	"heis/types"
+)
 
-// peerInfo tracks the state of a single peer
-type peerInfo struct {
-	lastCounter uint8
-	lastSeenAt  uint8 //Trenger en egen counter for å sammenlige med hb-counter altså et referansepunkt
-	state       PeerState
-	suspectedBy map[string]bool
-}
-
-// PeerTracker manages the state of all known peers
-type peerTracker struct {
+type PeerTracker struct {
 	peers             map[string]*peerInfo
 	suspectThreshold  int
 	consensusRequired int
 }
 
-type peerUpdate struct {
-	peerID   string
-	newState PeerState
-	oldState PeerState //kan være relevant for et ekstra lag med sikkerhet
-}
-
-func NewPeerTracker(suspectThreshold, consensusRequired int) *peerTracker {
-	return &peerTracker{
+func NewPeerTracker(suspectThreshold, consensusRequired int) *PeerTracker {
+	return &PeerTracker{
 		peers:             make(map[string]*peerInfo),
 		suspectThreshold:  suspectThreshold,
 		consensusRequired: consensusRequired,
 	}
 }
 
-// Funksjon som teller antall heiser i live //
-func (pt *peerTracker) aliveCount() int {
+func (peerTracker *PeerTracker) countAliveRemotePeers() int {
 	count := 0
-	for _, peer := range pt.peers {
-		if peer.state == Alive {
+	for _, peer := range peerTracker.peers {
+		if peer.state == PeerStateAlive {
 			count++
 		}
 	}
 	return count
 }
 
-// Funksjon som sjekker for konsensus //
-
-func (pt *peerTracker) hasConsensus(peerID string) bool {
-	peer, exists := pt.peers[peerID]
+func (peerTracker *PeerTracker) hasDeathConsensusFor(peerID string) bool {
+	peer, exists := peerTracker.peers[peerID]
 	if !exists {
 		return false
 	}
 
 	suspicionCount := len(peer.suspectedBy)
-	if peer.state == SuspectedDead { //Legger til vår stemme
+	if peer.state == PeerStateSuspected {
 		suspicionCount++
 	}
 
-	aliveNodes := pt.aliveCount() +1 // +1 for å legge til seg selv
+	totalAliveNodes := peerTracker.countAliveRemotePeers() + 1
 
-	effectiveRequired := pt.consensusRequired
-	if aliveNodes < effectiveRequired {
-		effectiveRequired = aliveNodes
+	effectiveRequired := peerTracker.consensusRequired
+	if totalAliveNodes < effectiveRequired {
+		effectiveRequired = totalAliveNodes
 	}
 
 	return suspicionCount >= effectiveRequired
 
 }
 
-func (pt *peerTracker) detectHeartbeatTimeouts(myCounter uint8) []peerUpdate {
+func (peerTracker *PeerTracker) markTimedOutPeersAsSuspected(currentTick uint8) []peerUpdate {
 	var updates []peerUpdate
-	for id, peer := range pt.peers {
-		if peer.state == Dead {
+	for id, peer := range peerTracker.peers {
+		if peer.state == PeerStateDead {
 			continue
 		}
-
-		missedHeartbeats := Delta(myCounter, peer.lastSeenAt) //Vår counter som referanse // -1 fordi differansen altid er >0
-		oldState := peer.state
-
-		//fmt.Printf("[PeerTracker] %s: missedHeartbeats=%d (suspect>=%d,) state=%s\n",
-		//	id, missedHeartbeats, pt.suspectThreshold, peer.state)
-
-		if missedHeartbeats >= pt.suspectThreshold && peer.state == Alive {
+		missedHeartbeats := types.MissedTicksBetween(currentTick, peer.lastSeenAtTick)
+		if missedHeartbeats >= peerTracker.suspectThreshold && peer.state == PeerStateAlive {
 			updates = append(updates, peerUpdate{
-				peerID: id,
-				newState: SuspectedDead,
-				oldState: oldState,
+				peerID:   id,
+				newState: PeerStateSuspected,
+				oldState: PeerStateAlive,
 			})
 		}
 	}
-	pt.applyUpdates(updates)
-
-
-	updates = append(updates, pt.checkConsensusForSuspected()...)
+	peerTracker.applyUpdates(updates)
 	return updates
 }
 
-// checkConsensusForSuspected går gjennom alle SuspectedDead-noder
-// og bekrefter Dead dersom konsensus er nådd
-func (pt *peerTracker) checkConsensusForSuspected() []peerUpdate {
+func (peerTracker *PeerTracker) confirmDeadPeersIfConsensus() []peerUpdate {
 	var updates []peerUpdate
-	for id := range pt.peers {
-		if u, ok := pt.confirmDeadIfConsensus(id); ok {
+	for id := range peerTracker.peers {
+		if u, ok := peerTracker.buildDeathUpdateIfConsensus(id); ok {
 			updates = append(updates, u)
 		}
 	}
-	pt.applyUpdates(updates)
+	peerTracker.applyUpdates(updates)
 	return updates
 }
 
-func (pt *peerTracker) processHeartbeat(hb Heartbeat, myID string, myCounter uint8) []peerUpdate {
+func (peerTracker *PeerTracker) receivePeerHeartbeat(hb Heartbeat, localNodeID string, localTick uint8) []peerUpdate {
 	var updates []peerUpdate
 
-	if u, ok := pt.updateSender(hb, myCounter); ok {
+	if u, ok := peerTracker.recordHeartbeatFromSender(hb, localTick); ok {
 		updates = append(updates, u)
 	}
 
-	updates = append(updates, pt.updateConsensus(hb, myID)...) //... pakk ut hvert element i lista og legg til individuelt
+	updates = append(updates, peerTracker.updateConsensus(hb, localNodeID)...)
 
-	pt.applyUpdates(updates)
+	peerTracker.applyUpdates(updates)
 
 	return updates
 }
 
-// updateSender håndterer tilstandsendring for avsenderen av heartbeaten
-func (pt *peerTracker) updateSender(hb Heartbeat, myCounter uint8) (peerUpdate, bool) {
-	sender, exists := pt.peers[hb.PeerID]
+func (peerTracker *PeerTracker) recordHeartbeatFromSender(hb Heartbeat, localTick uint8) (peerUpdate, bool) {
+	sender, exists := peerTracker.peers[hb.PeerID]
 
 	if !exists {
-		return pt.registerPeer(hb, myCounter), true
+		return peerTracker.registerPeer(hb, localTick), true
 	}
 
-	if sender.state == Dead {
-		return pt.rejoinPeer(hb, sender, myCounter), true //Altså peer med state som var død begynner å sende skal rett til refresh for rejoin og ikke evalueres av Isnewer pga melding altforr lang bak
+	if sender.state == PeerStateDead {
+		return peerTracker.rejoinPeer(hb, sender, localTick), true
 	}
 
-	if IsNewer(hb.Counter, sender.lastCounter) { //Filtrerer bort gamle HeartBeats
-		return pt.updateCounters(hb, sender, myCounter)
+	if types.IsSequentiallyNewer(hb.Counter, sender.lastReceivedCounter) {
+		return peerTracker.refreshPeerCounters(hb, sender, localTick)
 	}
 
 	return peerUpdate{}, false
 }
 
-// registerPeer legger til en helt ny heis
-func (pt *peerTracker) registerPeer(hb Heartbeat, myCounter uint8) peerUpdate {
-	pt.peers[hb.PeerID] = &peerInfo{
-		lastCounter: hb.Counter,
-		lastSeenAt:  myCounter,
-		state:       Alive,
-		suspectedBy: make(map[string]bool), //Tom suspectedBy map
-	}
-	return newAliveUpdate(hb.PeerID, Dead)
+func (peerTracker *PeerTracker) registerPeer(hb Heartbeat, localTicker uint8) peerUpdate {
+	info := &peerInfo{}
+	resetPeerToAlive(info, hb, localTicker)
+	peerTracker.peers[hb.PeerID] = info
+	return newAliveUpdate(hb.PeerID, PeerStateDead)
 }
 
-func (pt *peerTracker) rejoinPeer(hb Heartbeat, sender *peerInfo, myCounter uint8) peerUpdate {
+func (peerTracker *PeerTracker) rejoinPeer(hb Heartbeat, sender *peerInfo, localTicker uint8) peerUpdate {
 	oldState := sender.state
-	sender.lastCounter = hb.Counter
-	sender.lastSeenAt = myCounter
-	sender.state = Alive
-	sender.suspectedBy = make(map[string]bool)
+	resetPeerToAlive(sender, hb, localTicker)
 	return newAliveUpdate(hb.PeerID, oldState)
 }
 
-func (pt *peerTracker) updateCounters(hb Heartbeat, sender *peerInfo, myCounter uint8) (peerUpdate, bool) {
-	oldState := sender.state
-	sender.lastCounter = hb.Counter
-	sender.lastSeenAt = myCounter
+func resetPeerToAlive(info *peerInfo, hb Heartbeat, localTicker uint8) {
+	info.lastReceivedCounter = hb.Counter
+	info.lastSeenAtTick = localTicker
+	info.state = PeerStateAlive
+	info.suspectedBy = make(map[string]bool)
+}
 
-	if oldState == SuspectedDead {
-		sender.state = Alive
+func (peerTracker *PeerTracker) refreshPeerCounters(hb Heartbeat, sender *peerInfo, localTick uint8) (peerUpdate, bool) {
+	oldState := sender.state
+	sender.lastReceivedCounter = hb.Counter
+	sender.lastSeenAtTick = localTick
+
+	if oldState == PeerStateSuspected {
+		sender.state = PeerStateAlive
 		sender.suspectedBy = make(map[string]bool)
 		return newAliveUpdate(hb.PeerID, oldState), true
 	}
@@ -174,15 +146,14 @@ func (pt *peerTracker) updateCounters(hb Heartbeat, sender *peerInfo, myCounter 
 	return peerUpdate{}, false
 }
 
-// updateConsensus behandler lista av mistenkte peers som avsenderen rapporterer
-func (pt *peerTracker) updateConsensus(hb Heartbeat, myID string) []peerUpdate {
+func (peerTracker *PeerTracker) updateConsensus(hb Heartbeat, myID string) []peerUpdate {
 	var updates []peerUpdate
 
 	for _, suspectedID := range hb.SuspectedPeers {
 		if suspectedID == myID {
 			continue
 		}
-		if u, ok := pt.tryConfirmDead(suspectedID, hb.PeerID); ok {
+		if u, ok := peerTracker.addSuspicionAndCheckDeath(suspectedID, hb.PeerID); ok {
 			updates = append(updates, u)
 		}
 	}
@@ -190,67 +161,62 @@ func (pt *peerTracker) updateConsensus(hb Heartbeat, myID string) []peerUpdate {
 	return updates
 }
 
-// Felles hjelper: returnerer peerUpdate hvis konsensus er nådd
-func (pt *peerTracker) confirmDeadIfConsensus(peerID string) (peerUpdate, bool) {
-    peer, exists := pt.peers[peerID]
-    if !exists || peer.state != SuspectedDead {
-        return peerUpdate{}, false
-    }
-    if !pt.hasConsensus(peerID) {
-        return peerUpdate{}, false
-    }
-    return peerUpdate{
-        peerID:   peerID,
-        newState: Dead,
-        oldState: SuspectedDead,
-    }, true
+func (peerTracker *PeerTracker) buildDeathUpdateIfConsensus(peerID string) (peerUpdate, bool) {
+	peer, exists := peerTracker.peers[peerID]
+	if !exists || peer.state != PeerStateSuspected {
+		return peerUpdate{}, false
+	}
+	if !peerTracker.hasDeathConsensusFor(peerID) {
+		return peerUpdate{}, false
+	}
+	return peerUpdate{
+		peerID:   peerID,
+		newState: PeerStateDead,
+		oldState: PeerStateSuspected,
+	}, true
 }
 
-
-// tryConfirmDead sjekker om konsensus er oppnådd for én mistenkt peer
-func (pt *peerTracker) tryConfirmDead(suspectedID, reporterID string) (peerUpdate, bool) {
-	peer, exists := pt.peers[suspectedID]
+func (peerTracker *PeerTracker) addSuspicionAndCheckDeath(suspectedID, reporterID string) (peerUpdate, bool) {
+	peer, exists := peerTracker.peers[suspectedID]
 	if !exists {
 		return peerUpdate{}, false
 	}
 
 	peer.suspectedBy[reporterID] = true
-	return pt.confirmDeadIfConsensus(suspectedID)
+	return peerTracker.buildDeathUpdateIfConsensus(suspectedID)
 }
 
-func (pt *peerTracker) applyUpdates(updates []peerUpdate) {
+func (peerTracker *PeerTracker) applyUpdates(updates []peerUpdate) {
 	for _, u := range updates {
-		peer, exists := pt.peers[u.peerID]
+		peer, exists := peerTracker.peers[u.peerID]
 		if !exists {
 			continue
 		}
 
 		peer.state = u.newState
 
-		if u.newState == Alive && u.oldState != Alive {
+		if u.newState == PeerStateAlive && u.oldState != PeerStateAlive {
 			peer.suspectedBy = make(map[string]bool)
 		}
 
-		pt.peers[u.peerID] = peer
-
+		peerTracker.peers[u.peerID] = peer
 	}
 }
 
-func (pt *peerTracker) getSuspectedPeers() []string {
+func (peerTracker *PeerTracker) getNonAlivePeers() []string {
 	var suspected []string
-	for id, peer := range pt.peers {
-		if peer.state == SuspectedDead || peer.state == Dead {
+	for id, peer := range peerTracker.peers {
+		if peer.state == PeerStateSuspected || peer.state == PeerStateDead {
 			suspected = append(suspected, id)
 		}
 	}
 	return suspected
 }
 
-// newAliveUpdate er en hjelpefunksjon som unngår duplisert peerUpdate-konstruksjon
 func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
 	return peerUpdate{
 		peerID:   peerID,
-		newState: Alive,
+		newState: PeerStateAlive,
 		oldState: oldState,
 	}
 }

@@ -1,28 +1,23 @@
 package network
 
-//Hensikt er å samle alle sendinger i en modul (network) per sendingstype
-//Problemet er at denne ble sendt i om.Run, OM trenger ikke å kjenne til nettverkskanalen direkte
-
-
 import (
 	om "heis/ordermanagement"
 )
 
-
-func RunOrderBroadcast(
-	in <- chan om.OrderMsg,
-	netTx chan <- om.OrderMsg,
+func ForwardOutgoingOrders(
+	ordersFromOm <-chan om.OrderMsg,
+	netTx chan<- om.OrderMsg,
 ) {
-	for msg := range in {
+	for msg := range ordersFromOm {
 		netTx <- msg
 	}
 }
 
-func RunOrderReceive(
-    netRx <-chan om.OrderMsg,
-    out chan<- om.OrderMsg,
+func DeliverIncomingOrders(
+	netRx <-chan om.OrderMsg,
+	ordersToOm chan<- om.OrderMsg,
 ) {
-    for msg := range netRx {
-        out <- msg  // blocking: vent til OM er klar
-    }
+	for msg := range netRx {
+		ordersToOm <- msg 
+	}
 }

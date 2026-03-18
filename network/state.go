@@ -1,57 +1,57 @@
 package network
 
 import (
-	"heis/config"
-	"heis/supervisor"
-	"log"
+	types "heis/types"
 	"time"
-	//"fmt"
 )
 
 const RunStateBroadcastInterval = 100 * time.Millisecond
 
-func RunStateBroadcast(
+func BroadcastLocalState(
 	myID string,
-	localStateCh <-chan config.ElevatorState,
-	netTx chan<- config.ElevatorState,
+	localStateCh <-chan types.ElevatorState,
+	netTx chan<- types.ElevatorState,
 ) {
 	ticker := time.NewTicker(RunStateBroadcastInterval)
 	defer ticker.Stop()
 
 	var counter uint8
-
-	last := config.ElevatorState{
-		ID:          myID,
-		Floor:       -1,
-		Direction:   config.DirStop,
-		Behaviour:   config.BehIdle,
-		CabRequests: make([]bool, config.N_FLOORS),
-	}
+	last := initialState(myID)
 
 	for {
 		select {
-		case st := <-localStateCh:
-			//st.ID = myID denne settes av FSM
-			if st.ID != myID {
-				log.Printf("networkTx localstate med uventet ID %q, men forventet %q", st.ID, myID)
-				st.ID = myID
+		case state := <-localStateCh:
+			if state.ID != myID {
+				state.ID = myID
 			}
-			last = st
-			//counter++
-			//last.Counter = counter
-			//netTx <- last //Sender hver gang det skjer en endring. Kan en endrig skje raskere enn 100ms????
+			last = state
+
 		case <-ticker.C:
 			counter++
-			last.Counter = counter
-			netTx <- last //Sender på hvert tick også 
+			transmitState(netTx, &last, counter)
 		}
 	}
 }
 
-func RunStateReceive(
+func initialState(myID string) types.ElevatorState {
+	return types.ElevatorState{
+		ID:          myID,
+		Floor:       -1,
+		Direction:   types.DirStop,
+		Behaviour:   types.BehIdle,
+		CabRequests: make([]bool, types.N_FLOORS),
+	}
+}
+
+func transmitState(netTx chan<- types.ElevatorState, state *types.ElevatorState, counter uint8) {
+	state.Counter = counter
+	netTx <- *state
+}
+
+func DeliverIncomingPeerStates(
 	myID string,
-	netRx <-chan config.ElevatorState,
-	peerStateCh chan<- config.ElevatorState,
+	netRx <-chan types.ElevatorState,
+	peerStateCh chan<- types.ElevatorState,
 ) {
 	lastCounter := make(map[string]uint8)
 
@@ -60,15 +60,12 @@ func RunStateReceive(
 			continue
 		}
 
-	 	last, known := lastCounter[state.ID]
-		if known && !supervisor.IsNewer(state.Counter, last){
-			//fmt.Printf("[RunStateReceive %s] DROP from=%s counter=%d last=%d\n",myID, state.ID, state.Counter, last)
-			continue //filtrer duplikat eller forsinket
+		last, known := lastCounter[state.ID]
+		if known && !types.IsSequentiallyNewer(state.Counter, last) {
+			continue
 		}
-		//fmt.Printf("[RunStateReceive %s] ACCEPT from=%s counter=%d last=%d known=%v cab=%v\n",myID, state.ID, state.Counter, last, known, state.CabRequests)
- 
-		lastCounter[state.ID] = state.Counter //known settes true indirekte her
-		
+
+		lastCounter[state.ID] = state.Counter
 		peerStateCh <- state
 	}
 }
