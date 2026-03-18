@@ -2,7 +2,6 @@ package supervisor
 
 import (
 	"heis/config"
-	"time"
 )
 
 type PeerState int
@@ -32,17 +31,6 @@ type Heartbeat struct {
 	SuspectedPeers []string
 }
 
-type Config struct {
-	MyID             string
-	SupervisorConfig config.SupervisorConfig
-}
-
-func NewConfig(myID string) Config {
-	return Config{
-		MyID:             myID,
-		SupervisorConfig: config.DefaultSupervisorConfig(),
-	}
-}
 
 type peerUpdate struct {
 	peerID   string
@@ -52,7 +40,7 @@ type peerUpdate struct {
 
 type peerInfo struct {
 	lastReceivedCounter uint8
-	lastSeenAtTick      uint8 //localTickWhenLastSeen
+	lastSeenAtTick      uint8 
 	state               PeerState
 	suspectedBy         map[string]bool
 }
@@ -72,8 +60,3 @@ func toPeerEvent(u peerUpdate) config.PeerAliveness {
 		IsAlive:  u.newState == PeerStateAlive,
 	}
 }
-
-// Hjelpere for å lese konfig-verdier
-func (c Config) tickInterval() time.Duration { return c.SupervisorConfig.TickInterval }
-func (c Config) suspectThreshold() int     { return c.SupervisorConfig.SuspectThreshold }
-func (c Config) consensusRequired() int    { return c.SupervisorConfig.ConsensusRequired }

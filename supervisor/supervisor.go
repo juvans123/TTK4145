@@ -10,7 +10,7 @@ import (
 )
 
 type Supervisor struct {
-	config               Config
+	init               SupervisorInit
 	localTickCount       uint8
 	outgoingHeartbeatsCh chan<- Heartbeat
 	incomingHeartbeatsCh <-chan Heartbeat
@@ -18,13 +18,13 @@ type Supervisor struct {
 }
 
 func New(
-	cfg Config,
+	init SupervisorInit,
 	outgoingHeartbeatsCh chan<- Heartbeat,
 	incomingHeartbeatsCh <-chan Heartbeat,
 	peerAlivenessCh chan<- config.PeerAliveness,
 ) *Supervisor {
 	return &Supervisor{
-		config:               cfg,
+		init:               init,
 		localTickCount:       0,
 		outgoingHeartbeatsCh: outgoingHeartbeatsCh,
 		incomingHeartbeatsCh: incomingHeartbeatsCh,
@@ -33,14 +33,14 @@ func New(
 }
 
 func (s *Supervisor) MonitorPeerHealth(ctx context.Context) error {
-	ticker := time.NewTicker(s.config.tickInterval())
+	ticker := time.NewTicker(s.init.tickInterval())
 	defer ticker.Stop()
 	tracker := NewPeerTracker(
-		s.config.suspectThreshold(),
-		s.config.consensusRequired(),
+		s.init.suspectThreshold(),
+		s.init.consensusRequired(),
 	)
 
-	fmt.Printf("[Supervisor %s] Starting\n", s.config.MyID)
+	fmt.Printf("[Supervisor %s] Starting\n", s.init.MyID)
 
 	for {
 		select {
@@ -71,7 +71,7 @@ func (s *Supervisor) detectAndConfirmPeerFailures(tracker *PeerTracker) []peerUp
 
 func (s *Supervisor) sendHeartbeat(tracker *PeerTracker) {
 	hb := Heartbeat{
-		PeerID:         s.config.MyID,
+		PeerID:         s.init.MyID,
 		Counter:        s.localTickCount,
 		SuspectedPeers: tracker.getNonAlivePeers(),
 	}
@@ -81,10 +81,10 @@ func (s *Supervisor) sendHeartbeat(tracker *PeerTracker) {
 }
 
 func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *PeerTracker) {
-	if hb.PeerID == s.config.MyID {
+	if hb.PeerID == s.init.MyID {
 		return
 	}
-	updates := tracker.receivePeerHeartbeat(hb, s.config.MyID, s.localTickCount)
+	updates := tracker.receivePeerHeartbeat(hb, s.init.MyID, s.localTickCount)
 	s.publishAlivenessTransistion(updates)
 	s.logStateTransitions(updates)
 
@@ -93,7 +93,7 @@ func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *PeerTracker)
 func (s *Supervisor) logStateTransitions(updates []peerUpdate) {
 	for _, u := range updates {
 		fmt.Printf("[Supervisor %s] %s: %s -> %s\n",
-			s.config.MyID, u.peerID, u.oldState, u.newState)
+			s.init.MyID, u.peerID, u.oldState, u.newState)
 	}
 }
 
