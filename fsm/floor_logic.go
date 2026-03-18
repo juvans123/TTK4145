@@ -9,9 +9,6 @@ import (
 )
 
 func shouldTakeOrderInCurrentTravelDir(e *Elevator) bool {
-	if e.Floor < 0 || e.Floor >= len(e.Orders.Cab) {
-		return false
-	}
 	clear := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 	return clear.Cab || clear.HallUp || clear.HallDown
 }
@@ -24,9 +21,6 @@ func oppositeTravelDirection(dir config.TravelDirection) config.TravelDirection 
 }
 
 func hasOrdersInTravelDirection(e *Elevator) bool {
-	if e.Floor < 0 {
-		return false
-	}
 	if e.TravelDir == config.TD_Up {
 		return om.OrdersAbove(&e.Orders, e.Floor)
 	}
@@ -34,9 +28,6 @@ func hasOrdersInTravelDirection(e *Elevator) bool {
 }
 
 func hasOppositeHallOrderAtFloor(e *Elevator) bool {
-	if e.Floor < 0 || e.Floor >= len(e.Orders.Hall) {
-		return false
-	}
 	if e.TravelDir == config.TD_Up {
 		return e.Orders.Hall[e.Floor][config.BT_HallDown]
 	}
@@ -54,9 +45,9 @@ func closeDoorAndStopTimer(doorTimer *time.Timer) {
 	stopTimerChannel(doorTimer)
 }
 
-func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection) config.ClearEvent {
+func ComputeClearEvent(orders *om.Orders, floor int, travelDir config.TravelDirection) config.ClearEvent {
 	clear := config.ClearEvent{
-		Floor:         floor,
+		Floor:    floor,
 		Cab:      false,
 		HallUp:   false,
 		HallDown: false,
@@ -80,7 +71,7 @@ func ComputeClearEvent(orders *om.Orders, floor int, dir config.TravelDirection)
 		return clear
 	}
 
-	switch dir {
+	switch travelDir {
 	case config.TD_Up:
 		if hallUp {
 			clear.HallUp = true

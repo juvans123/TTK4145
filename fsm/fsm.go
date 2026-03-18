@@ -48,7 +48,7 @@ func Run(
 		select {
 		case newOrders := <-ordersFromOmCh:
 			prevOrders := e.Orders
-			prevAtFloor := (e.Floor >= 0) && om.HasOrderAtFloor(&prevOrders, e.Floor)
+			prevAtFloor := om.HasOrderAtFloor(&prevOrders, e.Floor)
 
 			e.Orders = newOrders
 
@@ -63,7 +63,7 @@ func Run(
 				setMotor(resumeTowardsLastKnownFloor(e.TravelDir))
 			}
 
-			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
+			if e.Behavior == EB_DoorOpen {
 				if shouldTakeOrderInCurrentTravelDir(&e) && !prevAtFloor {
 					resetTimer(doorTimer, doorOpenDuration)
 					clearCh <-ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
@@ -83,7 +83,7 @@ func Run(
 				continue
 			}
 
-			if e.Behavior == EB_Idle && e.Floor >= 0 && om.HasOrderAtFloor(&e.Orders, e.Floor) {
+			if e.Behavior == EB_Idle && om.HasOrderAtFloor(&e.Orders, e.Floor) {
 				if !shouldTakeOrderInCurrentTravelDir(&e) && hasOppositeHallOrderAtFloor(&e) {
 					e.TravelDir = oppositeTravelDirection(e.TravelDir)
 				}

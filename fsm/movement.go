@@ -46,10 +46,6 @@ func shouldStop(e *Elevator) bool {
 
 func chooseDirection(e *Elevator) (config.TravelDirection, Behavior, elevio.MotorDirection) {
 	floor := e.Floor
-	if floor < 0 {
-		return e.TravelDir, EB_Idle, elevio.MD_Stop
-	}
-
 	switch e.TravelDir {
 	case config.TD_Up:
 		if om.OrdersAbove(&e.Orders, floor) {
