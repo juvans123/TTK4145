@@ -28,7 +28,6 @@ func Run(
 
 	orderBroadcastTicker := time.NewTicker(100 * time.Millisecond)
 	defer orderBroadcastTicker.Stop()
-	
 
 mainLoop:
 	for {
@@ -37,7 +36,6 @@ mainLoop:
 		select {
 		case btn := <-buttonPressedCh:
 
-			
 			ownerID := ownerForButton(myID, btn.Button)
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
 			localOrder := localOrderView[key]
@@ -53,7 +51,7 @@ mainLoop:
 					confirmOrderInWorldState(&worldState, key)
 					changed = true
 				}
-				
+
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 			}
 
@@ -72,11 +70,9 @@ mainLoop:
 					continue
 				}
 
-				
 				ownerID := ownerForButton(myID, clearInfo.button)
 				key := makeOrderKey(ownerID, clear.Floor, clearInfo.button)
 				localOrder := localOrderView[key]
-			
 
 				if localOrder.Phase != Confirmed {
 					continue
@@ -88,8 +84,8 @@ mainLoop:
 					clearOrderInWorldState(&worldState, key)
 					changed = true
 				}
-				//changed = true 
-				
+				//changed = true
+
 				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 					delete(localOrderView, key)
 				}
@@ -99,10 +95,10 @@ mainLoop:
 		case newLocalState := <-localStateCh:
 
 			prevLocalState := worldState.States[myID]
-			newLocalState.ID = myID  //fjerne denne linjer og skrive myID direkte i linjen under
+			newLocalState.ID = myID //fjerne denne linjer og skrive myID direkte i linjen under
 			worldState.States[newLocalState.ID] = newLocalState
 
-			if prevLocalState.Immobile != newLocalState.Immobile {
+			if prevLocalState.IsImmobile != newLocalState.IsImmobile {
 				changed = true
 			}
 
@@ -110,7 +106,7 @@ mainLoop:
 			prevPeerState := worldState.States[newPeerState.ID]
 			worldState.States[newPeerState.ID] = newPeerState
 
-			if prevPeerState.Immobile != newPeerState.Immobile {
+			if prevPeerState.IsImmobile != newPeerState.IsImmobile {
 				changed = true
 			}
 
@@ -135,7 +131,6 @@ mainLoop:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 			localOrder := localOrderView[key]
 
-
 			if localOrder.SeenBy == nil {
 				localOrder.SeenBy = make(map[string]bool)
 				localOrder.Phase = NoOrder
@@ -155,12 +150,11 @@ mainLoop:
 			}
 
 			localOrder.SeenBy[myID] = true
-			localOrderView[key] = localOrder 
+			localOrderView[key] = localOrder
 
 			if localOrder.Phase == Unconfirmed && !allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 				continue mainLoop
 			}
-
 
 			switch localOrder.Phase {
 			case Unconfirmed:
@@ -171,25 +165,23 @@ mainLoop:
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 				//changed = true
 
-
 			case Confirmed:
 				if !isOrderConfirmedInWorldState(&worldState, key) {
 					confirmOrderInWorldState(&worldState, key)
 					changed = true
 				}
-				
 
 			case Served:
 				if isOrderConfirmedInWorldState(&worldState, key) {
 					clearOrderInWorldState(&worldState, key)
 					changed = true
 				}
-				
+
 				delete(localOrderView, key)
 				//changed = true
 			}
 
-		case <-orderBroadcastTicker.C: 
+		case <-orderBroadcastTicker.C:
 			for key, localOrder := range localOrderView {
 				if localOrder.Phase == NoOrder {
 					continue
@@ -210,4 +202,3 @@ mainLoop:
 		}
 	}
 }
-

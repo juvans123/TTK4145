@@ -1,15 +1,15 @@
 package fsm
 
 import (
-	"heis/types"
 	"heis/elevio"
 	om "heis/ordermanagement"
+	"heis/types"
 	"time"
 )
 
 const (
-	doorOpenDuration = 3 * time.Second
-	motorImmobileTimeout = 3 * time.Second
+	doorOpenDuration           = 3 * time.Second
+	motorImmobileTimeout       = 3 * time.Second
 	obstructionImmobileTimeout = 3 * time.Second
 )
 
@@ -25,13 +25,13 @@ func Run(
 	setButtonLight <-chan types.LightState,
 ) {
 	e := Elevator{
-		Floor:      -1,
-		Dir:        elevio.MD_Down,
-		TravelDir:  types.TD_Down,
-		Behavior:   EB_Moving,
-		Orders:     om.NewOrders(types.N_FLOORS),
-		Obstructed: false,
-		Immobile:   false,
+		Floor:        -1,
+		Dir:          elevio.MD_Down,
+		TravelDir:    types.TD_Down,
+		Behavior:     EB_Moving,
+		Orders:       om.NewOrders(types.N_FLOORS),
+		IsObstructed: false,
+		IsImmobile:   false,
 	}
 
 	stopPressed := false
@@ -59,7 +59,7 @@ func Run(
 
 			lastKnownFloor := e.Floor
 			isBetweenFloors := elevio.GetFloor() == -1
-			if e.Immobile && om.HasOrderAtFloor(&e.Orders, lastKnownFloor) && isBetweenFloors {
+			if e.IsImmobile && om.HasOrderAtFloor(&e.Orders, lastKnownFloor) && isBetweenFloors {
 				e.Behavior = EB_Moving
 				setMotor(resumeTowardsLastKnownFloor(e.TravelDir))
 			}
@@ -67,7 +67,7 @@ func Run(
 			if e.Behavior == EB_DoorOpen {
 				if shouldTakeOrderInCurrentTravelDir(&e) && !prevAtFloor {
 					resetTimer(doorTimer, doorOpenDuration)
-					clearCh <-ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
+					clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				}
 				publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
 				continue
@@ -76,7 +76,7 @@ func Run(
 			if e.Behavior == EB_Idle && shouldTakeOrderInCurrentTravelDir(&e) {
 				e.Behavior = EB_DoorOpen
 				openDoorAndStartTimer(doorTimer)
-				if e.Obstructed {
+				if e.IsObstructed {
 					startObstructionTimer(obstructionTimer, &obstructionTimerActive)
 				}
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
@@ -91,7 +91,7 @@ func Run(
 				if shouldTakeOrderInCurrentTravelDir(&e) {
 					e.Behavior = EB_DoorOpen
 					openDoorAndStartTimer(doorTimer)
-					if e.Obstructed {
+					if e.IsObstructed {
 						startObstructionTimer(obstructionTimer, &obstructionTimerActive)
 					}
 					clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
@@ -106,7 +106,7 @@ func Run(
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)
 					startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
-				} 
+				}
 				publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
 			}
 
@@ -114,14 +114,14 @@ func Run(
 			e.Floor = floor
 			elevio.SetFloorIndicator(floor)
 
-			if e.Immobile && !e.Obstructed{
-				e.Immobile = false
+			if e.IsImmobile && !e.IsObstructed {
+				e.IsImmobile = false
 				e.Behavior = EB_Moving
 			}
 
 			if e.Behavior == EB_Moving {
 				startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
-			} 
+			}
 
 			if e.Behavior == EB_Moving && !stopPressed && shouldStop(&e) {
 				stopMotor()
@@ -132,7 +132,7 @@ func Run(
 				if shouldTakeOrderInCurrentTravelDir(&e) {
 					e.Behavior = EB_DoorOpen
 					openDoorAndStartTimer(doorTimer)
-					if e.Obstructed {
+					if e.IsObstructed {
 						startObstructionTimer(obstructionTimer, &obstructionTimerActive)
 					}
 					clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
@@ -142,7 +142,7 @@ func Run(
 					openDoorAndStartTimer(doorTimer)
 					clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 				}
-				
+
 			}
 			publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
 
@@ -153,7 +153,7 @@ func Run(
 			if e.Behavior != EB_DoorOpen {
 				continue
 			}
-			if e.Obstructed || stopPressed {
+			if e.IsObstructed || stopPressed {
 				resetTimer(doorTimer, doorOpenDuration)
 				continue
 			}
@@ -167,7 +167,7 @@ func Run(
 			if !hasOrdersInTravelDirection(&e) && hasOppositeHallOrderAtFloor(&e) {
 				e.TravelDir = oppositeTravelDirection(e.TravelDir)
 				openDoorAndStartTimer(doorTimer)
-				if e.Obstructed {
+				if e.IsObstructed {
 					startObstructionTimer(obstructionTimer, &obstructionTimerActive)
 				}
 				clearCh <- ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
@@ -181,27 +181,25 @@ func Run(
 			if e.Behavior == EB_Moving {
 				setMotor(e.Dir)
 				startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
-			} 
+			}
 
 			publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
 
-
 		case isObstructed := <-obstrCh:
-			e.Obstructed = isObstructed
+			e.IsObstructed = isObstructed
 			if isObstructed {
 				if e.Behavior == EB_DoorOpen {
 					startObstructionTimer(obstructionTimer, &obstructionTimerActive)
 				}
 			} else {
 				stopObstructionTimer(obstructionTimer, &obstructionTimerActive)
-				e.Immobile = false
+				e.IsImmobile = false
 				if e.Behavior == EB_DoorOpen {
 					resetTimer(doorTimer, doorOpenDuration)
 				}
 			}
 
 			publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
-
 
 		case stopSignal := <-stopButtonCh:
 			stopPressed = stopSignal
@@ -220,11 +218,11 @@ func Run(
 				if currentFloor >= 0 {
 					e.Behavior = EB_DoorOpen
 					openDoorAndStartTimer(doorTimer)
-				} 
+				}
 			} else {
 				if e.Behavior == EB_DoorOpen {
 					resetTimer(doorTimer, doorOpenDuration)
-					if e.Obstructed {
+					if e.IsObstructed {
 						startObstructionTimer(obstructionTimer, &obstructionTimerActive)
 					}
 				} else if e.Behavior == EB_Idle {
@@ -241,16 +239,16 @@ func Run(
 		case <-motorImmobileTimer.C:
 			motorImmobileTimerActive = false
 			if e.Behavior == EB_Moving && !stopPressed {
-				e.Immobile = true
+				e.IsImmobile = true
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_Idle
 				publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
 			}
-		
+
 		case <-obstructionTimer.C:
 			obstructionTimerActive = false
-			if e.Obstructed && e.Behavior == EB_DoorOpen && !stopPressed {
-				e.Immobile = true
+			if e.IsObstructed && e.Behavior == EB_DoorOpen && !stopPressed {
+				e.IsImmobile = true
 				stopMotor()
 				e.Dir = elevio.MD_Stop
 				e.Behavior = EB_DoorOpen
@@ -259,5 +257,3 @@ func Run(
 		}
 	}
 }
-
-

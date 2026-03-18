@@ -1,10 +1,10 @@
 package ordermanagement
 
-import(
-	"fmt"
-	"heis/types"
+import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"heis/types"
 	"os/exec"
 )
 
@@ -21,13 +21,12 @@ func NewOrders(numFloors int) Orders {
 	return orders
 }
 
-
 func CallAssigner(path string, in AssignerInput) (AssignerOutput, error) {
 	inputJSON, err := json.Marshal(in)
 	if err != nil {
 		return nil, err
 	}
-	inputJSON = append(inputJSON, '\n') 
+	inputJSON = append(inputJSON, '\n')
 
 	cmd := exec.Command(path)
 
@@ -60,7 +59,6 @@ func CallAssigner(path string, in AssignerInput) (AssignerOutput, error) {
 	return output, nil
 }
 
-
 func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 	hallRequests := make([][]bool, types.N_FLOORS)
 	for floor := 0; floor < types.N_FLOORS; floor++ {
@@ -75,7 +73,7 @@ func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 			continue
 		}
 
-		if state.Immobile && id != myID {
+		if state.IsImmobile && id != myID {
 			continue
 		}
 
@@ -162,4 +160,3 @@ func buildLightState(ws *WorldState, myID string) types.LightState {
 
 	return ls
 }
-

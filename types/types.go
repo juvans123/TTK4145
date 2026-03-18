@@ -58,7 +58,7 @@ type ElevatorState struct {
 	Direction   Direction `json:"direction"`
 	CabRequests []bool    `json:"cabRequests"`
 	Obstructed  bool
-	Immobile    bool
+	IsImmobile  bool
 }
 
 type PeerAliveness struct {
@@ -71,8 +71,7 @@ type LightState struct {
 	Cab  []bool
 }
 
-
-const maxToleratedCounterJump = 128 
+const maxToleratedCounterJump = 128
 
 func IsSequentiallyNewer(incomingCounter, storedCounter uint8) bool {
 	delta := incomingCounter - storedCounter
