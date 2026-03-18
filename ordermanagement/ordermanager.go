@@ -177,7 +177,7 @@ mainLoop:
 				}
 
 				delete(localOrderView, key)
-				//changed = true
+				changed = true
 			}
 
 		case <-orderBroadcastTicker.C:
