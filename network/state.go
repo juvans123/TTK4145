@@ -2,13 +2,12 @@ package network
 
 import (
 	"heis/config"
-	"log"
 	"time"
 )
 
 const RunStateBroadcastInterval = 100 * time.Millisecond
 
-func RunStateBroadcast(
+func BroadcastLocalState(
 	myID string,
 	localStateCh <-chan config.ElevatorState,
 	netTx chan<- config.ElevatorState,
@@ -17,36 +16,44 @@ func RunStateBroadcast(
 	defer ticker.Stop()
 
 	var counter uint8
+	last := initialState(myID)
 
-	last := config.ElevatorState{
+	for {
+		select {
+		case st := <-localStateCh:
+			last = acceptIncomingState(st, myID)
+
+		case <-ticker.C:
+			counter++
+			transmitState(netTx, &last, counter)
+		}
+	}
+}
+
+func initialState(myID string) config.ElevatorState {
+	return config.ElevatorState{
 		ID:          myID,
 		Floor:       -1,
 		Direction:   config.DirStop,
 		Behaviour:   config.BehIdle,
 		CabRequests: make([]bool, config.N_FLOORS),
 	}
-
-	for {
-		select {
-		case st := <-localStateCh:
-			//st.ID = myID denne settes av FSM
-			if st.ID != myID {
-				log.Printf("networkTx localstate med uventet ID %q, men forventet %q", st.ID, myID)
-				st.ID = myID
-			}
-			last = st
-			//counter++
-			//last.Counter = counter
-			//netTx <- last //Sender hver gang det skjer en endring. Kan en endrig skje raskere enn 100ms????
-		case <-ticker.C:
-			counter++
-			last.Counter = counter
-			netTx <- last //Sender på hvert tick også 
-		}
-	}
 }
 
-func RunStateReceive(
+
+func acceptIncomingState(st config.ElevatorState, myID string) config.ElevatorState {
+	if st.ID != myID {
+		st.ID = myID
+	}
+	return st
+}
+
+func transmitState(netTx chan<- config.ElevatorState, state *config.ElevatorState, counter uint8) {
+	state.Counter = counter
+	netTx <- *state
+}
+
+func DeliverIncomingPeerStates(
 	myID string,
 	netRx <-chan config.ElevatorState,
 	peerStateCh chan<- config.ElevatorState,
@@ -58,14 +65,12 @@ func RunStateReceive(
 			continue
 		}
 
-	 	last, known := lastCounter[state.ID]
-		if known && config.IsSequentiallyNewer(state.Counter, last){
-			//fmt.Printf("[RunStateReceive %s] DROP from=%s counter=%d last=%d\n",myID, state.ID, state.Counter, last)
-			continue //filtrer duplikat eller forsinket
+		last, known := lastCounter[state.ID]
+		if known && !config.IsSequentiallyNewer(state.Counter, last) {
+			continue
 		}
- 
-		lastCounter[state.ID] = state.Counter //known settes true indirekte her
-		
+
+		lastCounter[state.ID] = state.Counter
 		peerStateCh <- state
 	}
 }
