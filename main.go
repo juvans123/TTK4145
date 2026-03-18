@@ -66,8 +66,8 @@ func main() {
 
 	go network.Transmitter(netCfg.StatePort, stateTx)
 	go network.Receiver(netCfg.StatePort, stateRx)
-	go network.RunStateBroadcast(myID, netLocalStateCh, stateTx)
-	go network.RunStateReceive(myID, stateRx, peerStateCh)
+	go network.BroadcastLocalState(myID, netLocalStateCh, stateTx)
+	go network.DeliverIncomingPeerStates(myID, stateRx, peerStateCh)
 
 	// Order network
 	ordersBroadcastCh := make(chan om.OrderMsg, 16) //OM -> network
