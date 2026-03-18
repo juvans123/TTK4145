@@ -212,3 +212,11 @@ func (peerTracker *PeerTracker) getNonAlivePeers() []string {
 	}
 	return suspected
 }
+
+func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
+	return peerUpdate{
+		peerID:   peerID,
+		newState: PeerStateAlive,
+		oldState: oldState,
+	}
+}

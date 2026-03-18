@@ -33,11 +33,11 @@ func New(
 }
 
 func (s *Supervisor) MonitorPeerHealth(context context.Context) error {
-	ticker := time.NewTicker(s.init.tickInterval())
+	ticker := time.NewTicker(s.init.TickInterval)
 	defer ticker.Stop()
 	tracker := NewPeerTracker(
-		s.init.suspectThreshold(),
-		s.init.consensusRequired(),
+		s.init.TicksBeforeSuspected,
+		s.init.ConsensusRequired,
 	)
 
 	fmt.Printf("[Supervisor %s] Starting\n", s.init.MyID)
@@ -99,5 +99,12 @@ func (s *Supervisor) publishAlivenessTransistion(updates []peerUpdate) {
 	for _, u := range updates {
 
 		s.peerAlivenessCh <- formatPeerAliveness(u)
+	}
+}
+
+func formatPeerAliveness(update peerUpdate) types.PeerAliveness {
+	return types.PeerAliveness{
+		ID:      update.peerID,
+		IsAlive: update.newState == PeerStateAlive,
 	}
 }
