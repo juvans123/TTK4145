@@ -22,7 +22,7 @@ const (
 	peerAlivenessBuffer    = 64
 )
 
-func fanOutState(in <-chan config.ElevatorState, outs ...chan<- config.ElevatorState) {
+func broadcastLocalState(in <-chan config.ElevatorState, outs ...chan<- config.ElevatorState) {
 	for state := range in {
 		for _, out := range outs {
 			out <- state
@@ -41,22 +41,25 @@ func main() {
 
 	elevio.Init(*addrFlag, *floorsFlag)
 
+	//hardware input channels
 	buttonPressedCh := make(chan config.ButtonEvent)
 	floorCh := make(chan int)
 	obstructionCh := make(chan bool)
 	stopButtonCh := make(chan bool)
 
+	// FSM <-> OM channels
 	ordersToFsmCh := make(chan om.Orders, ordersToFsmBuffer)
 	clearCh := make(chan config.ClearEvent, clearChannelBuffer)
+	buttonLightsCh := make(chan config.LightState, buttonLightsBuffer)
 
-	fsmStateCh := make(chan config.ElevatorState, stateChannelBuffer)   // fra FSM
-	localStateCh := make(chan config.ElevatorState, stateChannelBuffer) // til OM
-	netLocalStateCh := make(chan config.ElevatorState, stateChannelBuffer) // til network heartbeat
+	// Elevator state channels
+	fsmStateCh := make(chan config.ElevatorState, stateChannelBuffer)   
+	localStateCh := make(chan config.ElevatorState, stateChannelBuffer) 
+	netLocalStateCh := make(chan config.ElevatorState, stateChannelBuffer) 
 
-	buttonLightsCh := make(chan config.LightState, buttonLightsBuffer) // fra OM til FSM
+	
 
-	go fanOutState(fsmStateCh, localStateCh, netLocalStateCh)
-
+	go broadcastLocalState(fsmStateCh, localStateCh, netLocalStateCh)
 	startHardwarePolling(buttonPressedCh, floorCh, obstructionCh, stopButtonCh)
 
 	// Elevator state network
@@ -80,26 +83,33 @@ func main() {
 	go network.RunOrderBroadcast(ordersBroadcastCh, orderNetTx)
 	go network.RunOrderReceive(orderNetRx, ordersFromNetworkCh)
 
-	// Heartbeat network
-	hbInternal := make(chan supervisor.Heartbeat, 16) // supervisor → network
-	hbNetTx    := make(chan supervisor.Heartbeat, 16) // network → bcast TX
-	hbNetRx    := make(chan supervisor.Heartbeat, 64) // bcast RX → network
-	hbIncoming := make(chan supervisor.Heartbeat, 64) // network → supervisor
 
-	go network.Transmitter(netCfg.HeartbeatPort, hbNetTx)
-	go network.Receiver(netCfg.HeartbeatPort, hbNetRx)
-	go network.RunHeartbeatBroadcast(hbInternal, hbNetTx)
-	go network.RunHeartbeatReceive(myID, hbNetRx, hbIncoming)
+	// Heartbeat communication
+	heartbeatFromSupervisorCh := make(chan supervisor.Heartbeat, 16)
+	heartbeatToBroadcastTxCh  := make(chan supervisor.Heartbeat, 16)
+	heartbeatFromBroadcastRxCh := make(chan supervisor.Heartbeat, 64)
+	heartbeatToSupervisorCh   := make(chan supervisor.Heartbeat, 64)
 
-	// --- Supervisor: peer health monitoring ---
-	
-	peerAlivenessCh := make(chan config.PeerAliveness, peerAlivenessBuffer) //Ny
-	
-	sup := supervisor.New(supervisor.NewConfig(myID), hbInternal, hbIncoming, peerAlivenessCh)
-	go func() {
-		sup.MonitorPeerHealth(context.Background())
-	}()
+	go network.Transmitter(netCfg.HeartbeatPort, heartbeatToBroadcastTxCh)
+	go network.Receiver(netCfg.HeartbeatPort, heartbeatFromBroadcastRxCh)
+	go network.RunHeartbeatBroadcast(heartbeatFromSupervisorCh, heartbeatToBroadcastTxCh)
+	go network.RunHeartbeatReceive(myID, heartbeatFromBroadcastRxCh, heartbeatToSupervisorCh)
 
+
+	// Supervisor: peer aliveness monitoring
+	peerAlivenessCh := make(chan config.PeerAliveness, peerAlivenessBuffer)
+
+	sup := supervisor.New(
+		supervisor.NewConfig(myID),
+		heartbeatFromSupervisorCh,   // outgoing heartbeats
+		heartbeatToSupervisorCh,     // incoming heartbeats from network
+		peerAlivenessCh,             // detected peer liveness changes
+	)
+
+	go sup.MonitorPeerHealth(context.Background())
+
+
+	//Ordermanager
 	go om.Run(myID,
 		buttonPressedCh,
 		clearCh,
@@ -112,6 +122,7 @@ func main() {
 		buttonLightsCh,
 	)
 
+	//fsm
 	go fsm.Run(myID,
 		doorTimer,
 		floorCh,
