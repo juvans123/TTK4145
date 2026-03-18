@@ -72,7 +72,7 @@ type LightState struct {
 }
 
 
-const maxToleratedCounterJump = 128 //half of uint8 range
+const maxToleratedCounterJump = 128 
 
 func IsSequentiallyNewer(incomingCounter, storedCounter uint8) bool {
 	delta := incomingCounter - storedCounter
