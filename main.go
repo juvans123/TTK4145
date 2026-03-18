@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"heis/types"
 	"heis/elevio"
 	"heis/fsm"
 	"heis/network"
 	om "heis/ordermanagement"
 	"heis/supervisor"
+	"heis/types"
 )
 
 const (
@@ -21,13 +21,6 @@ const (
 	peerAlivenessBuffer  = 64
 )
 
-func broadcastLocalState(in <-chan types.ElevatorState, outs ...chan<- types.ElevatorState) {
-	for state := range in {
-		for _, out := range outs {
-			out <- state
-		}
-	}
-}
 func main() {
 	idFlag := flag.String("id", "elev1", "Elevator ID (elev1, elev2, elev3, ...)")
 	addrFlag := flag.String("addr", "localhost:18111", "Elevator server address")
@@ -40,7 +33,7 @@ func main() {
 
 	elevio.Init(*addrFlag, *floorsFlag)
 
-	//hardware input channels
+	//Hardware input channels
 	buttonPressedCh := make(chan types.ButtonEvent)
 	floorCh := make(chan int)
 	obstructionCh := make(chan bool)
@@ -70,10 +63,10 @@ func main() {
 	go network.DeliverIncomingPeerStates(myID, stateRx, peerStateCh)
 
 	// Order network
-	ordersBroadcastCh := make(chan om.OrderMsg, 16)   //OM -> network
-	orderNetTx := make(chan om.OrderMsg, 16)          // network -> bcast TX
-	orderNetRx := make(chan om.OrderMsg, 64)          // bcast RX -> network
-	ordersFromNetworkCh := make(chan om.OrderMsg, 64) // network -> OM
+	ordersBroadcastCh := make(chan om.OrderMsg, 16)  
+	orderNetTx := make(chan om.OrderMsg, 16)          
+	orderNetRx := make(chan om.OrderMsg, 64)        
+	ordersFromNetworkCh := make(chan om.OrderMsg, 64) 
 
 	go network.Transmitter(netCfg.OrderPort, orderNetTx)
 	go network.Receiver(netCfg.OrderPort, orderNetRx)
@@ -91,21 +84,16 @@ func main() {
 	go network.ForwardOutgoingHeartbeats(heartbeatFromSupervisorCh, heartbeatToBroadcastTxCh)
 	go network.DeliverIncomingHeartbeats(myID, heartbeatFromBroadcastRxCh, heartbeatToSupervisorCh)
 
-
-
-
-	
 	peerAlivenessCh := make(chan types.PeerAliveness, peerAlivenessBuffer)
 
 	sup := supervisor.New(
 		supervisor.NewSupervisorInit(myID),
-		heartbeatFromSupervisorCh, // outgoing heartbeats
-		heartbeatToSupervisorCh,   // incoming heartbeats from network
-		peerAlivenessCh,           // detected peer liveness changes
+		heartbeatFromSupervisorCh,
+		heartbeatToSupervisorCh,
+		peerAlivenessCh,
 	)
 
 	go sup.MonitorPeerHealth(context.Background())
-
 
 	go om.Run(myID,
 		buttonPressedCh,
@@ -119,7 +107,6 @@ func main() {
 		buttonLightsCh,
 	)
 
-	
 	go fsm.Run(myID,
 		doorTimer,
 		floorCh,
@@ -144,4 +131,12 @@ func startHardwarePolling(
 	go elevio.PollFloorSensor(floorCh)
 	go elevio.PollObstructionSwitch(obstructionCh)
 	go elevio.PollStopButton(stopButtonCh)
+}
+
+func broadcastLocalState(in <-chan types.ElevatorState, outs ...chan<- types.ElevatorState) {
+	for state := range in {
+		for _, out := range outs {
+			out <- state
+		}
+	}
 }
