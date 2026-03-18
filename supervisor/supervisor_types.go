@@ -1,6 +1,5 @@
 package supervisor
 
-
 type PeerState int
 
 const (
