@@ -12,7 +12,7 @@ const (
 	PeerStateSuspected
 	PeerStateDead
 )
-
+//KUN FOR PRINTING
 func (ps PeerState) String() string {
 	switch ps {
 	case PeerStateAlive:
