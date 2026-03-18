@@ -81,9 +81,8 @@ mainLoop:
 
 				if isOrderConfirmedInWorldState(&worldState, key) {
 					clearOrderInWorldState(&worldState, key)
-					changed = true
 				}
-				//changed = true
+				changed = true
 
 				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 					delete(localOrderView, key)
