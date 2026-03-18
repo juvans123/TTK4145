@@ -52,7 +52,7 @@ type peerUpdate struct {
 
 type peerInfo struct {
 	lastReceivedCounter uint8
-	lastSeenAtTick      uint8 //localTickWhenLastSeen
+	lastSeenAtTick      uint8 
 	state               PeerState
 	suspectedBy         map[string]bool
 }
