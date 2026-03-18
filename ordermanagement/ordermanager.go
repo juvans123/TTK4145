@@ -151,7 +151,7 @@ mainLoop:
 			localOrder.SeenBy[myID] = true
 			localOrderView[key] = localOrder
 
-			if localOrder.Phase == Unconfirmed && !allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
+			if (localOrder.Phase == Unconfirmed || localOrder.Phase == Served) && !allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 				continue mainLoop
 			}
 
