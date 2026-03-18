@@ -56,6 +56,7 @@ func Run(
 				publishStateIfChanged(myID, e, stateOutCh, &lastPublishedState)
 				continue
 			}
+
 			lastKnownFloor := e.Floor
 			isBetweenFloors := elevio.GetFloor() == -1
 			if e.Immobile && om.HasOrderAtFloor(&e.Orders, lastKnownFloor) && isBetweenFloors {
@@ -219,7 +220,6 @@ func Run(
 				if currentFloor >= 0 {
 					e.Behavior = EB_DoorOpen
 					openDoorAndStartTimer(doorTimer)
-					//clearer ikke her
 				} 
 			} else {
 				if e.Behavior == EB_DoorOpen {

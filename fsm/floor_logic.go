@@ -34,7 +34,6 @@ func hasOppositeHallOrderAtFloor(e *Elevator) bool {
 	return e.Orders.Hall[e.Floor][config.BT_HallUp]
 }
 
-
 func openDoorAndStartTimer(doorTimer *time.Timer) {
 	elevio.SetDoorOpenLamp(true)
 	resetTimer(doorTimer, doorOpenDuration)
@@ -70,18 +69,12 @@ func ComputeClearEvent(orders *om.Orders, floor int, travelDir config.TravelDire
 		clear.HallDown = hallDown
 		return clear
 	}
-
+	
 	switch travelDir {
 	case config.TD_Up:
-		if hallUp {
-			clear.HallUp = true
-		}
-
+		clear.HallUp = hallUp
 	case config.TD_Down:
-		if hallDown {
-			clear.HallDown = true
-		}
-
+		clear.HallDown = hallDown
 	default:
 		clear.HallUp = hallUp
 		clear.HallDown = hallDown
