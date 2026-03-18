@@ -1,14 +1,14 @@
 package fsm
 
 import (
-    "heis/config"
+    types "heis/types"
     "heis/elevio"
 )
 
-func PublicStateFromFSM(e Elevator, myID string) config.ElevatorState {
+func PublicStateFromFSM(e Elevator, myID string) types.ElevatorState {
 	cabCopy := make([]bool, len(e.Orders.Cab))
     copy(cabCopy, e.Orders.Cab)
-    return config.ElevatorState{
+    return types.ElevatorState{
         ID: myID,
         Behaviour: mapBehaviour(e.Behavior),
         Floor: e.Floor,
@@ -19,36 +19,36 @@ func PublicStateFromFSM(e Elevator, myID string) config.ElevatorState {
     }
 }
 
-func mapBehaviour(b Behavior) config.Behaviour{
+func mapBehaviour(b Behavior) types.Behaviour{
 	switch b{
 	case EB_Idle:
-		return config.BehIdle
+		return types.BehIdle
 	case EB_Moving:
-		return config.BehMoving
+		return types.BehMoving
 	case EB_DoorOpen:
-		return config.BehDoorOpen
+		return types.BehDoorOpen
 	default:
-		return config.BehIdle
+		return types.BehIdle
 	}
 }
 
-func mapDir(dir elevio.MotorDirection) config.Direction{
+func mapDir(dir elevio.MotorDirection) types.Direction{
 	switch dir {
     case elevio.MD_Up:
-        return config.DirUp
+        return types.DirUp
     case elevio.MD_Down:
-        return config.DirDown
+        return types.DirDown
     case elevio.MD_Stop:
-        return config.DirStop
+        return types.DirStop
     default:
-        return config.DirStop
+        return types.DirStop
     }
 }
 
 
 func tryPublishInitialState(
-	stateOutCh chan<- config.ElevatorState,
-	initialState config.ElevatorState,
+	stateOutCh chan<- types.ElevatorState,
+	initialState types.ElevatorState,
 ) {
 	select {
 	case stateOutCh <- initialState:
@@ -59,8 +59,8 @@ func tryPublishInitialState(
 func publishStateIfChanged(
 	myID string,
 	elevator Elevator,
-	stateOutCh chan<- config.ElevatorState,
-	lastPublishedState *config.ElevatorState,
+	stateOutCh chan<- types.ElevatorState,
+	lastPublishedState *types.ElevatorState,
 ) {
 	currentState := PublicStateFromFSM(elevator, myID)
 	if equalElevatorStates(currentState, *lastPublishedState) {
@@ -83,7 +83,7 @@ func publishStateIfChanged(
 }
 
 
-func equalElevatorStates(firstState, secondState config.ElevatorState) bool {
+func equalElevatorStates(firstState, secondState types.ElevatorState) bool {
 	return firstState.Floor == secondState.Floor &&
 		firstState.Behaviour == secondState.Behaviour &&
 		firstState.Direction == secondState.Direction &&

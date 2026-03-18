@@ -1,21 +1,21 @@
 package ordermanagement
 
 import (
-	"heis/config"
+	types "heis/types"
 	"time"
 )
 
 func Run(
 	myID string,
-	buttonPressedCh <-chan config.ButtonEvent,
-	clearCh <-chan config.ClearEvent,
-	localStateCh <-chan config.ElevatorState,
-	peerStateCh <-chan config.ElevatorState,
-	peerAlivenessCh <-chan config.PeerAliveness,
+	buttonPressedCh <-chan types.ButtonEvent,
+	clearCh <-chan types.ClearEvent,
+	localStateCh <-chan types.ElevatorState,
+	peerStateCh <-chan types.ElevatorState,
+	peerAlivenessCh <-chan types.PeerAliveness,
 	ordersToFsmCh chan<- Orders,
 	OrdersBroadcastCh chan<- OrderMsg, // OM -> Network
 	OrdersFromNetwork <-chan OrderMsg, // OM <- Network
-	setButtonLight chan<- config.LightState,
+	setButtonLight chan<- types.LightState,
 ) {
 	//init?
 	worldState := NewWorldState()
@@ -60,11 +60,11 @@ mainLoop:
 		case clear := <-clearCh:
 			clears := []struct {
 				shouldClear bool
-				button      config.ButtonType
+				button      types.ButtonType
 			}{
-				{clear.Cab, config.BT_Cab},
-				{clear.HallUp, config.BT_HallUp},
-				{clear.HallDown, config.BT_HallDown},
+				{clear.Cab, types.BT_Cab},
+				{clear.HallUp, types.BT_HallUp},
+				{clear.HallDown, types.BT_HallDown},
 			}
 
 			for _, clearInfo := range clears {
@@ -127,7 +127,7 @@ mainLoop:
 			//denne må fikses!! chat melder at den er smart, men den er litt random også- så vabnskelig å navngi
 			if peer.IsAlive {
 				for key, info := range localOrderView {
-					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
+					if key.OwnerID == myID && key.Button == types.BT_Cab && info.Phase == Served {
 						delete(localOrderView, key)
 					}
 				}

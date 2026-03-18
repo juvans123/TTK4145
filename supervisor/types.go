@@ -1,7 +1,7 @@
 package supervisor
 
 import (
-	"heis/config"
+	"heis/types"
 )
 
 type PeerState int
@@ -54,8 +54,8 @@ func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
 	}
 }
 
-func toPeerEvent(u peerUpdate) config.PeerAliveness {
-	return config.PeerAliveness{
+func toPeerEvent(u peerUpdate) types.PeerAliveness {
+	return types.PeerAliveness{
 		ID: u.peerID,
 		IsAlive:  u.newState == PeerStateAlive,
 	}

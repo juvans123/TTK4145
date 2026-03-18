@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 	"time"
-	"heis/config"
+	types "heis/types"
 )
 
 func Init(addr string, numFloors int) {
@@ -28,7 +28,7 @@ func SetMotorDirection(dir MotorDirection) {
 	write([4]byte{1, byte(dir), 0, 0})
 }
 
-func SetButtonLamp(button config.ButtonType, floor int, value bool) {
+func SetButtonLamp(button types.ButtonType, floor int, value bool) {
 	write([4]byte{2, byte(button), byte(floor), toByte(value)})
 }
 
@@ -44,15 +44,15 @@ func SetStopLamp(value bool) {
 	write([4]byte{5, toByte(value), 0, 0})
 }
 
-func PollButtons(receiver chan<- config.ButtonEvent) {
+func PollButtons(receiver chan<- types.ButtonEvent) {
 	prev := make([][3]bool, _numFloors)
 	for {
 		time.Sleep(_pollRate)
 		for f := 0; f < _numFloors; f++ {
-			for b := config.ButtonType(0); b < 3; b++ {
+			for b := types.ButtonType(0); b < 3; b++ {
 				v := GetButton(b, f)
 				if v != prev[f][b] && v != false {
-					receiver <- config.ButtonEvent{Floor: f, Button: b}
+					receiver <- types.ButtonEvent{Floor: f, Button: b}
 				}
 				prev[f][b] = v
 			}
@@ -96,7 +96,7 @@ func PollObstructionSwitch(receiver chan<- bool) {
 	}
 }
 
-func GetButton(button config.ButtonType, floor int) bool {
+func GetButton(button types.ButtonType, floor int) bool {
 	a := read([4]byte{6, byte(button), byte(floor), 0})
 	return toBool(a[1])
 }

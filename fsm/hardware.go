@@ -2,7 +2,7 @@ package fsm
 
 import (
 	"heis/elevio"
-	"heis/config"
+	"heis/types"
 )
 
 func setMotor(dir elevio.MotorDirection) {
@@ -13,18 +13,18 @@ func stopMotor() {
 	elevio.SetMotorDirection(elevio.MD_Stop)
 }
 
-func updateButtonLights(lightState config.LightState) {
-	for floor := 0; floor < config.N_FLOORS; floor++ {
-		elevio.SetButtonLamp(config.BT_HallUp, floor, lightState.Hall[floor][config.BT_HallUp])
-		elevio.SetButtonLamp(config.BT_HallDown, floor, lightState.Hall[floor][config.BT_HallDown])
-		elevio.SetButtonLamp(config.BT_Cab, floor, lightState.Cab[floor])
+func updateButtonLights(lightState types.LightState) {
+	for floor := 0; floor < types.N_FLOORS; floor++ {
+		elevio.SetButtonLamp(types.BT_HallUp, floor, lightState.Hall[floor][types.BT_HallUp])
+		elevio.SetButtonLamp(types.BT_HallDown, floor, lightState.Hall[floor][types.BT_HallDown])
+		elevio.SetButtonLamp(types.BT_Cab, floor, lightState.Cab[floor])
 	}
 }
 
 func clearAllButtonLamps() {
-	for floor := 0; floor < config.N_FLOORS; floor++ {
-		elevio.SetButtonLamp(config.BT_HallUp, floor, false)
-		elevio.SetButtonLamp(config.BT_HallDown, floor, false)
-		elevio.SetButtonLamp(config.BT_Cab, floor, false)
+	for floor := 0; floor < types.N_FLOORS; floor++ {
+		elevio.SetButtonLamp(types.BT_HallUp, floor, false)
+		elevio.SetButtonLamp(types.BT_HallDown, floor, false)
+		elevio.SetButtonLamp(types.BT_Cab, floor, false)
 	}
 }

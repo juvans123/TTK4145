@@ -1,7 +1,7 @@
 package network
 
 import (
-	"heis/config"
+	types "heis/types"
 	"time"
 )
 
@@ -9,8 +9,8 @@ const RunStateBroadcastInterval = 100 * time.Millisecond
 
 func BroadcastLocalState(
 	myID string,
-	localStateCh <-chan config.ElevatorState,
-	netTx chan<- config.ElevatorState,
+	localStateCh <-chan types.ElevatorState,
+	netTx chan<- types.ElevatorState,
 ) {
 	ticker := time.NewTicker(RunStateBroadcastInterval)
 	defer ticker.Stop()
@@ -30,33 +30,33 @@ func BroadcastLocalState(
 	}
 }
 
-func initialState(myID string) config.ElevatorState {
-	return config.ElevatorState{
+func initialState(myID string) types.ElevatorState {
+	return types.ElevatorState{
 		ID:          myID,
 		Floor:       -1,
-		Direction:   config.DirStop,
-		Behaviour:   config.BehIdle,
-		CabRequests: make([]bool, config.N_FLOORS),
+		Direction:   types.DirStop,
+		Behaviour:   types.BehIdle,
+		CabRequests: make([]bool, types.N_FLOORS),
 	}
 }
 
 
-func acceptIncomingState(st config.ElevatorState, myID string) config.ElevatorState {
+func acceptIncomingState(st types.ElevatorState, myID string) types.ElevatorState {
 	if st.ID != myID {
 		st.ID = myID
 	}
 	return st
 }
 
-func transmitState(netTx chan<- config.ElevatorState, state *config.ElevatorState, counter uint8) {
+func transmitState(netTx chan<- types.ElevatorState, state *types.ElevatorState, counter uint8) {
 	state.Counter = counter
 	netTx <- *state
 }
 
 func DeliverIncomingPeerStates(
 	myID string,
-	netRx <-chan config.ElevatorState,
-	peerStateCh chan<- config.ElevatorState,
+	netRx <-chan types.ElevatorState,
+	peerStateCh chan<- types.ElevatorState,
 ) {
 	lastCounter := make(map[string]uint8)
 
@@ -66,7 +66,7 @@ func DeliverIncomingPeerStates(
 		}
 
 		last, known := lastCounter[state.ID]
-		if known && !config.IsSequentiallyNewer(state.Counter, last) {
+		if known && !types.IsSequentiallyNewer(state.Counter, last) {
 			continue
 		}
 

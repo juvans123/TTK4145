@@ -1,7 +1,7 @@
 package fsm
 
 import (
-	"heis/config"
+	"heis/types"
 	"heis/elevio"
 	om "heis/ordermanagement"
 	"time"
@@ -20,16 +20,16 @@ func Run(
 	ordersFromOmCh <-chan om.Orders,
 	obstrCh <-chan bool,
 	stopButtonCh <-chan bool,
-	clearCh chan<- config.ClearEvent,
-	stateOutCh chan<- config.ElevatorState,
-	setButtonLight <-chan config.LightState,
+	clearCh chan<- types.ClearEvent,
+	stateOutCh chan<- types.ElevatorState,
+	setButtonLight <-chan types.LightState,
 ) {
 	e := Elevator{
 		Floor:      -1,
 		Dir:        elevio.MD_Down,
-		TravelDir:  config.TD_Down,
+		TravelDir:  types.TD_Down,
 		Behavior:   EB_Moving,
-		Orders:     om.NewOrders(config.N_FLOORS),
+		Orders:     om.NewOrders(types.N_FLOORS),
 		Obstructed: false,
 		Immobile:   false,
 	}

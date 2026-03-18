@@ -1,6 +1,6 @@
 package ordermanagement
 
-import ("heis/config")
+import ("heis/types")
 
 func OrdersAbove(orders *Orders, currentFloor int) bool {
 	for floor := currentFloor + 1; floor < len(orders.Cab); floor++ {
@@ -22,12 +22,12 @@ func OrdersBelow(orders *Orders, currentFloor int) bool {
 
 func HasOrderAtFloor(orders *Orders, floor int) bool {
 	return orders.Cab[floor] ||
-		orders.Hall[floor][config.BT_HallUp] ||
-		orders.Hall[floor][config.BT_HallDown]
+		orders.Hall[floor][types.BT_HallUp] ||
+		orders.Hall[floor][types.BT_HallDown]
 }
 
 func HasOrders(orders *Orders) bool {
-	for floor := 0; floor < config.N_FLOORS; floor++ {
+	for floor := 0; floor < types.N_FLOORS; floor++ {
 		if HasOrderAtFloor(orders, floor) {
 			return true
 		}

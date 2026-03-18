@@ -2,7 +2,7 @@ package ordermanagement
 
 import(
 	"fmt"
-	"heis/config"
+	"heis/types"
 	"bytes"
 	"encoding/json"
 	"os/exec"
@@ -62,14 +62,14 @@ func CallAssigner(path string, in AssignerInput) (AssignerOutput, error) {
 
 
 func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
-	hallRequests := make([][]bool, config.N_FLOORS)
-	for floor := 0; floor < config.N_FLOORS; floor++ {
+	hallRequests := make([][]bool, types.N_FLOORS)
+	for floor := 0; floor < types.N_FLOORS; floor++ {
 		hallRequests[floor] = make([]bool, 2)
-		hallRequests[floor][config.BT_HallUp] = ws.ConfirmedHallOrders[floor][config.BT_HallUp]
-		hallRequests[floor][config.BT_HallDown] = ws.ConfirmedHallOrders[floor][config.BT_HallDown]
+		hallRequests[floor][types.BT_HallUp] = ws.ConfirmedHallOrders[floor][types.BT_HallUp]
+		hallRequests[floor][types.BT_HallDown] = ws.ConfirmedHallOrders[floor][types.BT_HallDown]
 	}
 
-	states := make(map[string]config.ElevatorState)
+	states := make(map[string]types.ElevatorState)
 	for id, state := range ws.States {
 		if !ws.Alive[id] {
 			continue
@@ -80,8 +80,8 @@ func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 		}
 
 		confirmedCab, ok := ws.ConfirmedCabOrders[id]
-		if ok && len(confirmedCab) == config.N_FLOORS {
-			cabCopy := make([]bool, config.N_FLOORS)
+		if ok && len(confirmedCab) == types.N_FLOORS {
+			cabCopy := make([]bool, types.N_FLOORS)
 			copy(cabCopy, confirmedCab)
 			state.CabRequests = cabCopy
 		}
@@ -110,53 +110,53 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 		return buildCabOnlyOrders(ws, myID)
 	}
 
-	myLocalOrders := NewOrders(config.N_FLOORS)
+	myLocalOrders := NewOrders(types.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
-	if ok && len(confirmedCab) == config.N_FLOORS {
-		for floor := 0; floor < config.N_FLOORS; floor++ {
+	if ok && len(confirmedCab) == types.N_FLOORS {
+		for floor := 0; floor < types.N_FLOORS; floor++ {
 			myLocalOrders.Cab[floor] = confirmedCab[floor]
 		}
 	}
 
-	for floor := 0; floor < config.N_FLOORS; floor++ {
-		myLocalOrders.Hall[floor][config.BT_HallUp] = myAssignedHall[floor][config.BT_HallUp]
-		myLocalOrders.Hall[floor][config.BT_HallDown] = myAssignedHall[floor][config.BT_HallDown]
+	for floor := 0; floor < types.N_FLOORS; floor++ {
+		myLocalOrders.Hall[floor][types.BT_HallUp] = myAssignedHall[floor][types.BT_HallUp]
+		myLocalOrders.Hall[floor][types.BT_HallDown] = myAssignedHall[floor][types.BT_HallDown]
 	}
 
 	return myLocalOrders
 }
 
 func buildCabOnlyOrders(ws *WorldState, myID string) Orders {
-	cabOnlyOrders := NewOrders(config.N_FLOORS)
+	cabOnlyOrders := NewOrders(types.N_FLOORS)
 
 	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
 	if !ok {
 		return cabOnlyOrders
 	}
 
-	if len(confirmedCab) != config.N_FLOORS {
+	if len(confirmedCab) != types.N_FLOORS {
 		return cabOnlyOrders
 	}
 
-	for floor := 0; floor < config.N_FLOORS; floor++ {
+	for floor := 0; floor < types.N_FLOORS; floor++ {
 		cabOnlyOrders.Cab[floor] = confirmedCab[floor]
 	}
 
 	return cabOnlyOrders
 }
 
-func buildLightState(ws *WorldState, myID string) config.LightState {
-	ls := config.LightState{
-		Cab: make([]bool, config.N_FLOORS),
+func buildLightState(ws *WorldState, myID string) types.LightState {
+	ls := types.LightState{
+		Cab: make([]bool, types.N_FLOORS),
 	}
 
-	for floor := 0; floor < config.N_FLOORS; floor++ {
-		ls.Hall[floor][config.BT_HallUp] = ws.ConfirmedHallOrders[floor][config.BT_HallUp]
-		ls.Hall[floor][config.BT_HallDown] = ws.ConfirmedHallOrders[floor][config.BT_HallDown]
+	for floor := 0; floor < types.N_FLOORS; floor++ {
+		ls.Hall[floor][types.BT_HallUp] = ws.ConfirmedHallOrders[floor][types.BT_HallUp]
+		ls.Hall[floor][types.BT_HallDown] = ws.ConfirmedHallOrders[floor][types.BT_HallDown]
 	}
 
-	if cabOrders, ok := ws.ConfirmedCabOrders[myID]; ok && len(cabOrders) == config.N_FLOORS {
+	if cabOrders, ok := ws.ConfirmedCabOrders[myID]; ok && len(cabOrders) == types.N_FLOORS {
 		copy(ls.Cab, cabOrders)
 	}
 

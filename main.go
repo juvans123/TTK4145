@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"heis/config"
+	"heis/types"
 	"heis/elevio"
 	"heis/fsm"
 	"heis/network"
@@ -21,7 +21,7 @@ const (
 	peerAlivenessBuffer  = 64
 )
 
-func broadcastLocalState(in <-chan config.ElevatorState, outs ...chan<- config.ElevatorState) {
+func broadcastLocalState(in <-chan types.ElevatorState, outs ...chan<- types.ElevatorState) {
 	for state := range in {
 		for _, out := range outs {
 			out <- state
@@ -31,7 +31,7 @@ func broadcastLocalState(in <-chan config.ElevatorState, outs ...chan<- config.E
 func main() {
 	idFlag := flag.String("id", "elev1", "Elevator ID (elev1, elev2, elev3, ...)")
 	addrFlag := flag.String("addr", "localhost:18111", "Elevator server address")
-	floorsFlag := flag.Int("floors", config.N_FLOORS, "Number of floors")
+	floorsFlag := flag.Int("floors", types.N_FLOORS, "Number of floors")
 	flag.Parse()
 
 	myID := *idFlag
@@ -41,28 +41,28 @@ func main() {
 	elevio.Init(*addrFlag, *floorsFlag)
 
 	//hardware input channels
-	buttonPressedCh := make(chan config.ButtonEvent)
+	buttonPressedCh := make(chan types.ButtonEvent)
 	floorCh := make(chan int)
 	obstructionCh := make(chan bool)
 	stopButtonCh := make(chan bool)
 
 	// FSM <-> OM channels
 	ordersToFsmCh := make(chan om.Orders, ordersToFsmBuffer)
-	clearCh := make(chan config.ClearEvent, clearChannelBuffer)
-	buttonLightsCh := make(chan config.LightState, buttonLightsBuffer)
+	clearCh := make(chan types.ClearEvent, clearChannelBuffer)
+	buttonLightsCh := make(chan types.LightState, buttonLightsBuffer)
 
 	// Elevator state channels
-	fsmStateCh := make(chan config.ElevatorState, stateChannelBuffer)
-	localStateCh := make(chan config.ElevatorState, stateChannelBuffer)
-	netLocalStateCh := make(chan config.ElevatorState, stateChannelBuffer)
+	fsmStateCh := make(chan types.ElevatorState, stateChannelBuffer)
+	localStateCh := make(chan types.ElevatorState, stateChannelBuffer)
+	netLocalStateCh := make(chan types.ElevatorState, stateChannelBuffer)
 
 	go broadcastLocalState(fsmStateCh, localStateCh, netLocalStateCh)
 	startHardwarePolling(buttonPressedCh, floorCh, obstructionCh, stopButtonCh)
 
 	// Elevator state network
-	stateTx := make(chan config.ElevatorState, stateChannelBuffer)
-	stateRx := make(chan config.ElevatorState, networkReceiveBuffer)
-	peerStateCh := make(chan config.ElevatorState, networkReceiveBuffer)
+	stateTx := make(chan types.ElevatorState, stateChannelBuffer)
+	stateRx := make(chan types.ElevatorState, networkReceiveBuffer)
+	peerStateCh := make(chan types.ElevatorState, networkReceiveBuffer)
 
 	go network.Transmitter(netCfg.StatePort, stateTx)
 	go network.Receiver(netCfg.StatePort, stateRx)
@@ -92,7 +92,7 @@ func main() {
 	go network.DeliverIncomingHeartbeats(myID, heartbeatFromBroadcastRxCh, heartbeatToSupervisorCh)
 
 	// Supervisor: peer aliveness monitoring
-	peerAlivenessCh := make(chan config.PeerAliveness, peerAlivenessBuffer)
+	peerAlivenessCh := make(chan types.PeerAliveness, peerAlivenessBuffer)
 
 	sup := supervisor.New(
 		supervisor.NewConfig(myID),
@@ -132,7 +132,7 @@ func main() {
 }
 
 func startHardwarePolling(
-	buttonPressedCh chan<- config.ButtonEvent,
+	buttonPressedCh chan<- types.ButtonEvent,
 	floorCh chan<- int,
 	obstructionCh chan<- bool,
 	stopButtonCh chan<- bool,

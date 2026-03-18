@@ -1,14 +1,14 @@
 package ordermanagement
-import ("heis/config")
+import ("heis/types")
 
 func initLocalElevator(ws *WorldState, myID string) {
 	ws.Alive[myID] = true
 
-	ws.States[myID] = config.ElevatorState{
+	ws.States[myID] = types.ElevatorState{
 		ID:          myID,
 		Floor:       0,
-		Behaviour:   config.BehIdle,
-		Direction:   config.DirStop,
-		CabRequests: make([]bool, config.N_FLOORS),
+		Behaviour:   types.BehIdle,
+		Direction:   types.DirStop,
+		CabRequests: make([]bool, types.N_FLOORS),
 	}
 }

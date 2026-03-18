@@ -1,4 +1,4 @@
-package config
+package types
 
 const N_FLOORS = 4
 

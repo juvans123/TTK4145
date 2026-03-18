@@ -5,7 +5,7 @@ package supervisor
 import (
 	"context"
 	"fmt"
-	"heis/config"
+	"heis/types"
 	"time"
 )
 
@@ -14,14 +14,14 @@ type Supervisor struct {
 	localTickCount       uint8
 	outgoingHeartbeatsCh chan<- Heartbeat
 	incomingHeartbeatsCh <-chan Heartbeat
-	peerAlivenessCh          chan<- config.PeerAliveness
+	peerAlivenessCh          chan<- types.PeerAliveness
 }
 
 func New(
 	cfg Config,
 	outgoingHeartbeatsCh chan<- Heartbeat,
 	incomingHeartbeatsCh <-chan Heartbeat,
-	peerAlivenessCh chan<- config.PeerAliveness,
+	peerAlivenessCh chan<- types.PeerAliveness,
 ) *Supervisor {
 	return &Supervisor{
 		config:               cfg,

@@ -1,7 +1,7 @@
 package supervisor
 
 import (
-	"heis/config"
+	"heis/types"
 )
 
 
@@ -58,7 +58,7 @@ func (pt *PeerTracker) markTimedOutPeersAsSuspected(currentTick uint8) []peerUpd
 		if peer.state == PeerStateDead {
 			continue
 		}
-		missedHeartbeats := config.MissedTicksBetween(currentTick, peer.lastSeenAtTick)
+		missedHeartbeats := types.MissedTicksBetween(currentTick, peer.lastSeenAtTick)
 		if missedHeartbeats >= pt.suspectThreshold && peer.state == PeerStateAlive {
 			updates = append(updates, peerUpdate{
 				peerID:   id,
@@ -107,7 +107,7 @@ func (pt *PeerTracker) recordHeartbeatFromSender(hb Heartbeat, localTick uint8) 
 		return pt.rejoinPeer(hb, sender, localTick), true
 	}
 
-	if config.IsSequentiallyNewer(hb.Counter, sender.lastReceivedCounter) {
+	if types.IsSequentiallyNewer(hb.Counter, sender.lastReceivedCounter) {
 		return pt.refreshPeerCounters(hb, sender, localTick)
 	}
 

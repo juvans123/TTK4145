@@ -1,7 +1,7 @@
 package fsm
 
 import (
-	"heis/config"
+	"heis/types"
 	"heis/elevio"
 	om "heis/ordermanagement"
 )
@@ -16,7 +16,7 @@ const (
 type Elevator struct {
 	Floor int
 	Dir elevio.MotorDirection
-	TravelDir config.TravelDirection
+	TravelDir types.TravelDirection
 	Behavior Behavior
 	Orders om.Orders
 	Obstructed bool

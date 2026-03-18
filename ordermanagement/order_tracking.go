@@ -1,7 +1,7 @@
 package ordermanagement
 
 import (
-	"heis/config"
+	types "heis/types"
 )
 
 func setLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
@@ -13,14 +13,14 @@ func setLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase Orde
 }
 
 
-func ownerForButton(myID string, button config.ButtonType) string {
-	if button == config.BT_Cab {
+func ownerForButton(myID string, button types.ButtonType) string {
+	if button == types.BT_Cab {
 		return myID
 	}
 	return ""
 }
 
-func makeOrderKey(ownerID string, floor int, button config.ButtonType) OrderKey {
+func makeOrderKey(ownerID string, floor int, button types.ButtonType) OrderKey {
 	return OrderKey{
 		OwnerID: ownerID,
 		Floor:   floor,

@@ -1,6 +1,6 @@
 package ordermanagement
 import (
-	"heis/config"
+	"heis/types"
 )
 
 type Orders struct {   
@@ -21,7 +21,7 @@ const (
 type OrderMsg struct {
     OwnerID string
     Floor int
-    Button config.ButtonType
+    Button types.ButtonType
     SeenBy map[string]bool
     Phase OrderPhase
 }
@@ -29,7 +29,7 @@ type OrderMsg struct {
 type OrderKey struct{
     OwnerID string
     Floor int
-    Button config.ButtonType
+    Button types.ButtonType
 }
 
 
@@ -42,9 +42,9 @@ type OrderRegister map[OrderKey]OrderInfo
 
 
 type WorldState struct {
-    ConfirmedHallOrders [config.N_FLOORS][2]bool
+    ConfirmedHallOrders [types.N_FLOORS][2]bool
     ConfirmedCabOrders map[string][]bool
-    States map[string]config.ElevatorState
+    States map[string]types.ElevatorState
     Alive map[string]bool
     //OrderTracker OrderTracker
     // LastSeen map[string]time.Time
@@ -53,7 +53,7 @@ type WorldState struct {
 
 type AssignerInput struct {
 	HallRequests [][]bool                        `json:"hallRequests"`
-	States       map[string]config.ElevatorState `json:"states"`
+	States       map[string]types.ElevatorState `json:"states"`
 }
 
 type AssignerOutput map[string][][]bool
