@@ -75,8 +75,8 @@ func main() {
 	orderNetRx := make(chan om.OrderMsg, 64)          // bcast RX -> network
 	ordersFromNetworkCh := make(chan om.OrderMsg, 64) // network -> OM
 
-	go network.Transmitter(netCfg.HallOrderPort, orderNetTx)
-	go network.Receiver(netCfg.HallOrderPort, orderNetRx)
+	go network.Transmitter(netCfg.OrderPort, orderNetTx)
+	go network.Receiver(netCfg.OrderPort, orderNetRx)
 	go network.ForwardOutgoingOrders(ordersBroadcastCh, orderNetTx)
 	go network.DeliverIncomingOrders(orderNetRx, ordersFromNetworkCh)
 

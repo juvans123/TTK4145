@@ -5,6 +5,7 @@ import "time"
 const N_FLOORS = 4
 
 type TravelDirection int
+
 const (
 	TD_Up TravelDirection = iota
 	TD_Down
@@ -16,7 +17,7 @@ type OrderEvent struct {
 }
 
 type ClearEvent struct {
-	Floor         int
+	Floor    int
 	Cab      bool
 	HallUp   bool
 	HallDown bool
@@ -36,6 +37,7 @@ type ButtonEvent struct {
 }
 
 type Behaviour string
+
 const (
 	BehIdle     Behaviour = "idle"
 	BehMoving   Behaviour = "moving"
@@ -43,6 +45,7 @@ const (
 )
 
 type Direction string
+
 const (
 	DirUp   Direction = "up"
 	DirDown Direction = "down"
@@ -60,10 +63,9 @@ type ElevatorState struct {
 	Immobile    bool
 }
 
-
 type PeerAliveness struct {
-	ID string
-	IsAlive  bool
+	ID      string
+	IsAlive bool
 }
 
 type LightState struct {
@@ -86,14 +88,14 @@ func DefaultSupervisorConfig() SupervisorConfig {
 
 type NetworkConfig struct {
 	StatePort     int
-	HallOrderPort int
+	OrderPort     int
 	HeartbeatPort int
 }
 
 func DefaultNetworkConfig() NetworkConfig {
 	return NetworkConfig{
 		StatePort:     16570,
-		HallOrderPort: 16571,
+		OrderPort:     16571,
 		HeartbeatPort: 16647,
 	}
 }
