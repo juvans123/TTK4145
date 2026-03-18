@@ -61,9 +61,9 @@ type ElevatorState struct {
 }
 
 
-type PeerEvent struct {
-	PeerID string
-	Alive  bool
+type PeerAliveness struct {
+	ID string
+	IsAlive  bool
 }
 
 type LightState struct {

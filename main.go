@@ -93,7 +93,7 @@ func main() {
 
 	// --- Supervisor: peer health monitoring ---
 	
-	peerAlivenessCh := make(chan config.PeerEvent, peerAlivenessBuffer) //Ny
+	peerAlivenessCh := make(chan config.PeerAliveness, peerAlivenessBuffer) //Ny
 	
 	sup := supervisor.New(supervisor.NewConfig(myID), hbInternal, hbIncoming, peerAlivenessCh)
 	go func() {

@@ -14,21 +14,21 @@ type Supervisor struct {
 	localTickCount       uint8
 	outgoingHeartbeatsCh chan<- Heartbeat
 	incomingHeartbeatsCh <-chan Heartbeat
-	PeerEventTx          chan<- config.PeerEvent
+	peerAlivenessCh          chan<- config.PeerAliveness
 }
 
 func New(
 	cfg Config,
 	outgoingHeartbeatsCh chan<- Heartbeat,
 	incomingHeartbeatsCh <-chan Heartbeat,
-	peerEventTx chan<- config.PeerEvent,
+	peerAlivenessCh chan<- config.PeerAliveness,
 ) *Supervisor {
 	return &Supervisor{
 		config:               cfg,
 		localTickCount:       0,
 		outgoingHeartbeatsCh: outgoingHeartbeatsCh,
 		incomingHeartbeatsCh: incomingHeartbeatsCh,
-		PeerEventTx:          peerEventTx,
+		peerAlivenessCh:          peerAlivenessCh,
 	}
 }
 
@@ -100,6 +100,6 @@ func (s *Supervisor) logStateTransitions(updates []peerUpdate) {
 func (s *Supervisor) publishAlivenessTransistion(updates []peerUpdate) {
 	for _, u := range updates {
 		
-		s.PeerEventTx <- toPeerEvent(u)
+		s.peerAlivenessCh <- toPeerEvent(u)
 	}
 }
