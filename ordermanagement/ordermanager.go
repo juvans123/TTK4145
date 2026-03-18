@@ -49,9 +49,9 @@ mainLoop:
 			localOrder = setLocalOrderPhase(localOrderView, key, Unconfirmed, myID)
 
 			if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
-				confirmOrderInWorldState(&worldState, key)
-				changed = true
-				
+				if confirmOrderInWorldState(&worldState, key) {
+					changed = true
+				}
 				
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 			}
@@ -83,10 +83,11 @@ mainLoop:
 
 				localOrder = setLocalOrderPhase(localOrderView, key, Served, myID)
 
-				clearOrderInWorldState(&worldState, key)
-				
+				if clearOrderInWorldState(&worldState, key) {
+					changed = true
+				}
 				changed = true
-
+				
 				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 					delete(localOrderView, key)
 				}
@@ -163,19 +164,23 @@ mainLoop:
 
 			switch localOrder.Phase {
 			case Unconfirmed:
-				confirmOrderInWorldState(&worldState, key)
+				if confirmOrderInWorldState(&worldState, key) {
+					changed = true
+				}
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 				changed = true
 
 
 			case Confirmed:
-				confirmOrderInWorldState(&worldState, key)
-				changed = true
+				if confirmOrderInWorldState(&worldState, key) {
+					changed = true
+				}
 				
 
 			case Served:
-				clearOrderInWorldState(&worldState, key)
-				changed = true
+				if clearOrderInWorldState(&worldState, key) {
+					changed = true
+				}
 				
 				delete(localOrderView, key)
 				changed = true
