@@ -77,7 +77,7 @@ func Run(
 			!cabRequestsEqual(st.CabRequests, lastPublished.CabRequests) {
 			select {
 			case stateOutCh <- st:
-				fmt.Printf("[FSM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v\n", myID, st.Floor, st.Behaviour, st.Direction, st.CabRequests)
+				//fmt.Printf("[FSM %s] PUBLISH state floor=%d beh=%v dir=%v cab=%v\n", myID, st.Floor, st.Behaviour, st.Direction, st.CabRequests)
 				lastPublished = st
 			default:
 			}
@@ -157,7 +157,7 @@ func Run(
 
 			if e.Behavior == EB_DoorOpen && e.Floor >= 0 {
 				if shouldTakeOrdersAtFloor(&e) && !prevAtFloor {
-					fmt.Printf("JEG ER HER")
+					//fmt.Printf("JEG ER HER")
 					timer.Reset(doorOpenDuration)
 					ce := ComputeClearEvent(&e.Orders, e.Floor, e.TravelDir)
 					clearCh <- ce
@@ -167,7 +167,7 @@ func Run(
 			}
 
 			if e.Behavior == EB_Idle && shouldTakeOrdersAtFloor(&e) {
-				fmt.Printf("EB_Idle && shouldTakeOrdersAtFloor(&e)")
+				//fmt.Printf("EB_Idle && shouldTakeOrdersAtFloor(&e)")
 				e.Behavior = EB_DoorOpen
 				openDoorAndSetLamp(timer)
 				if e.Obstructed {
@@ -197,10 +197,10 @@ func Run(
 			}
 
 			if e.Behavior == EB_Idle {
-				fmt.Printf("Behavior before chooseDir: %v\n", e.Behavior)
+				//fmt.Printf("Behavior before chooseDir: %v\n", e.Behavior)
 				travelDir, behavior, dir := chooseDirection(&e)
 				e.TravelDir, e.Behavior, e.Dir = travelDir, behavior, dir
-				fmt.Printf("Behavior after chooseDir: %v\n", e.Behavior)
+				//fmt.Printf("Behavior after chooseDir: %v\n", e.Behavior)
 				if e.Behavior == EB_Moving {
 					setMotor(e.Dir)
 					startMotorTimer(motorImmobileTimer, &motorImmobileTimerActive)
