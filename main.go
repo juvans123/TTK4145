@@ -13,11 +13,29 @@ import (
 	//"time"
 )
 
+const (
+	stateChannelBuffer     = 16
+	orderChannelBuffer     = 16
+	networkReceiveBuffer   = 64
+	clearChannelBuffer     = 10
+	ordersToFsmBuffer      = 10
+	buttonLightsBuffer     = 16
+	peerAlivenessBuffer    = 16
+)
+
+func fanOutState(in <-chan config.ElevatorState, outs ...chan<- config.ElevatorState) {
+	for state := range in {
+		for _, out := range outs {
+			out <- state
+		}
+	}
+}
 func main() {
 	idFlag := flag.String("id", "elev1", "Elevator ID (elev1, elev2, elev3, ...)")
-	addrFlag := flag.String("addr", "localhost:12345", "Elevator server address")
+	addrFlag := flag.String("addr", "localhost:18111", "Elevator server address")
 	floorsFlag := flag.Int("floors", config.N_FLOORS, "Number of floors")
 	flag.Parse()
+
 	myID := *idFlag
 	netCfg := config.DefaultNetworkConfig()
 	doorTimer := fsm.NewStoppedDoorTimer()
@@ -29,67 +47,41 @@ func main() {
 	obstructionCh := make(chan bool)
 	stopButtonCh := make(chan bool)
 
-	ordersToFsmCh := make(chan om.Orders, 10)
-	clearCh := make(chan config.ClearEvent, 10)
-	//localStateCh := make(chan config.ElevatorState)
-	//peerUpdateCh := make(chan config.PeerUpdate)
+	ordersToFsmCh := make(chan om.Orders, ordersToFsmBuffer)
+	clearCh := make(chan config.ClearEvent, clearChannelBuffer)
 
-	fsmStateCh := make(chan config.ElevatorState, 16)      // fra FSM
-	localStateCh := make(chan config.ElevatorState, 16)  // til OM
-	netLocalStateCh := make(chan config.ElevatorState, 16) // til network heartbeat
+	fsmStateCh := make(chan config.ElevatorState, stateChannelBuffer)   // fra FSM
+	localStateCh := make(chan config.ElevatorState, stateChannelBuffer) // til OM
+	netLocalStateCh := make(chan config.ElevatorState, stateChannelBuffer) // til network heartbeat
 
-	buttonLightsCh := make(chan config.LightState, 16) // fra OM til FSM
+	buttonLightsCh := make(chan config.LightState, buttonLightsBuffer) // fra OM til FSM
 
-	// OM og broadcaster leser fra samme kanal -> konflikt
-	go func() {
-		for state := range fsmStateCh {
-			localStateCh <- state
-			netLocalStateCh <- state
-		}
-	}()
+	go fanOutState(fsmStateCh, localStateCh, netLocalStateCh)
 
-	// Hardware polling
-	go elevio.PollButtons(buttonPressedCh)
-	go elevio.PollFloorSensor(floorCh)
-	go elevio.PollObstructionSwitch(obstructionCh)
-	go elevio.PollStopButton(stopButtonCh)
+	startHardwarePolling(buttonPressedCh, floorCh, obstructionCh, stopButtonCh)
 
-	// --- Network: ElevatorState ---
-	stateTx := make(chan config.ElevatorState, 16)
-	stateRx := make(chan config.ElevatorState, 64)
-	peerStateCh := make(chan config.ElevatorState, 64)
+	// Elevator state network
+	stateTx := make(chan config.ElevatorState, stateChannelBuffer)
+	stateRx := make(chan config.ElevatorState, networkReceiveBuffer)
+	peerStateCh := make(chan config.ElevatorState, networkReceiveBuffer)
 
 	go network.Transmitter(netCfg.StatePort, stateTx)
 	go network.Receiver(netCfg.StatePort, stateRx)
-
 	go network.RunStateBroadcast(myID, netLocalStateCh, stateTx)
 	go network.RunStateReceive(myID, stateRx, peerStateCh)
 
-	// --- Network: HallOrders ---
-	//OrderTx := make(chan om.OrderMsg, 16)
-	//OrderRx := make(chan om.OrderMsg, 64)
-
+	// Order network
 	ordersBroadcastCh := make(chan om.OrderMsg, 16) //OM -> network
 	orderNetTx := make(chan om.OrderMsg, 16) // network -> bcast TX
 	orderNetRx := make(chan om.OrderMsg, 64) // bcast RX -> network
 	ordersFromNetworkCh := make(chan om.OrderMsg, 64) // network -> OM
-
 
 	go network.Transmitter(netCfg.HallOrderPort, orderNetTx)
 	go network.Receiver(netCfg.HallOrderPort, orderNetRx)
 	go network.RunOrderBroadcast(ordersBroadcastCh, orderNetTx)
 	go network.RunOrderReceive(orderNetRx, ordersFromNetworkCh)
 
-
-	// clearPort = 16572
-	//go network.Transmitter(clearPort, clearEventTx)
-	//go network.Receiver(clearPort, clearEventRx)
-	//-----------------
-	// --- Network: peers alive/dead ---
-	//-----------------
-
-	// Network: Heartbeat
-
+	// Heartbeat network
 	hbInternal := make(chan supervisor.Heartbeat, 16) // supervisor → network
 	hbNetTx    := make(chan supervisor.Heartbeat, 16) // network → bcast TX
 	hbNetRx    := make(chan supervisor.Heartbeat, 64) // bcast RX → network
@@ -102,67 +94,48 @@ func main() {
 
 	// --- Supervisor: peer health monitoring ---
 	
-	peerAlivenessCh := make(chan config.PeerEvent, 16) //Ny
-
+	peerAlivenessCh := make(chan config.PeerEvent, peerAlivenessBuffer) //Ny
+	
 	sup := supervisor.New(supervisor.NewConfig(myID), hbInternal, hbIncoming, peerAlivenessCh)
 	go func() {
 		sup.MonitorPeerHealth(context.Background())
 	}()
 
-	// Order manager
-  
-	go om.Run(myID, buttonPressedCh, clearCh, localStateCh, peerStateCh, peerAlivenessCh, ordersToFsmCh, ordersBroadcastCh, ordersFromNetworkCh, buttonLightsCh)
+	go om.Run(myID,
+		buttonPressedCh,
+		clearCh,
+		localStateCh,
+		peerStateCh,
+		peerAlivenessCh,
+		ordersToFsmCh,
+		ordersBroadcastCh,
+		ordersFromNetworkCh,
+		buttonLightsCh,
+	)
 
-	// FSM
-	go fsm.Run(myID, doorTimer, floorCh, ordersToFsmCh, obstructionCh, stopButtonCh, clearCh, fsmStateCh, buttonLightsCh)
+	go fsm.Run(myID,
+		doorTimer,
+		floorCh,
+		ordersToFsmCh,
+		obstructionCh,
+		stopButtonCh,
+		clearCh,
+		fsmStateCh,
+		buttonLightsCh,
+	)
 
 	select {}
 }
 
-/*
-func testAssigner() {
-	// Test input for the assigner
-	in := om.AssignerInput{
-		HallRequests: [][]bool{
-			{false, false},
-			{true, false},
-			{false, true},
-			{true, false},
-		},
-		States: map[string]config.ElevatorState{
-			"id_1": {
-				ID:          "id_1",
-				Behaviour:   config.BehIdle,
-				Floor:       0,
-				Direction:   config.DirStop,
-				CabRequests: []bool{false, false, false, false},
-			},
-			"id_2": {
-				ID:          "id_2",
-				Behaviour:   config.BehMoving,
-				Floor:       2,
-				Direction:   config.DirUp,
-				CabRequests: []bool{false, true, false, false},
-			},
-			"id_3": {
-				ID:          "id_3",
-				Behaviour:   config.BehMoving,
-				Floor:       3,
-				Direction:   config.DirDown,
-				CabRequests: []bool{false, false, false, true},
-			},
-		},
-	}
 
-	// Call the assigner
-	out, err := om.CallAssigner("./hall_request_assigner/hall_request_assigner", in)
-	if err != nil {
-		fmt.Println("Assigner error:", err)
-		return
-	}
-
-	// Print the result
-	b, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println("Assigner output:")
-	fmt.Println(string(b))
-} */
+func startHardwarePolling(
+	buttonPressedCh chan<- config.ButtonEvent,
+	floorCh chan<- int,
+	obstructionCh chan<- bool,
+	stopButtonCh chan<- bool,
+) {
+	go elevio.PollButtons(buttonPressedCh)
+	go elevio.PollFloorSensor(floorCh)
+	go elevio.PollObstructionSwitch(obstructionCh)
+	go elevio.PollStopButton(stopButtonCh)
+}

@@ -95,8 +95,6 @@ func buildAssignerInput(myID string, ws *WorldState) AssignerInput {
 	}
 }
 
-
-
 func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	inputAssigner := buildAssignerInput(myID, ws)
 	path := "./hall_request_assigner/hall_request_assigner"
