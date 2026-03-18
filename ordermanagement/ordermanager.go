@@ -158,10 +158,9 @@ mainLoop:
 			case Unconfirmed:
 				if !isOrderConfirmedInWorldState(&worldState, key) {
 					confirmOrderInWorldState(&worldState, key)
-					changed = true
 				}
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
-				//changed = true
+				changed = true
 
 			case Confirmed:
 				if !isOrderConfirmedInWorldState(&worldState, key) {
@@ -172,9 +171,9 @@ mainLoop:
 			case Served:
 				if isOrderConfirmedInWorldState(&worldState, key) {
 					clearOrderInWorldState(&worldState, key)
-					changed = true
 				}
 				delete(localOrderView, key)
+				changed = true
 			}
 
 		case <-orderBroadcastTicker.C:
