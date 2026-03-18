@@ -1,13 +1,12 @@
 package network
 
-
 import (
 	"heis/supervisor"
 )
 
-func RunHeartbeatBroadcast(
+func ForwardOutgoingHeartbeats(
 	in <-chan supervisor.Heartbeat,
-	netTX chan<- supervisor.Heartbeat, 
+	netTX chan<- supervisor.Heartbeat,
 ) {
 	for hb := range in {
 		select {
@@ -17,18 +16,15 @@ func RunHeartbeatBroadcast(
 	}
 }
 
-func RunHeartbeatReceive(
-	myID string, 
-	netRx <-chan supervisor.Heartbeat, 
-	out chan<- supervisor.Heartbeat, 
+func DeliverIncomingHeartbeats(
+	myID string,
+	netRx <-chan supervisor.Heartbeat,
+	out chan<- supervisor.Heartbeat,
 ) {
 	for hb := range netRx {
 		if hb.PeerID == myID {
 			continue
 		}
-		select{
-		case out <- hb: 
-		default:
-		}
+		out <- hb
 	}
 }
