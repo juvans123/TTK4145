@@ -127,7 +127,7 @@ mainLoop:
 				ws.Alive[pe.PeerID] = pe.Alive
 				changed = true
 			}
-			fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
+			//fmt.Printf("[OM %s] PEER EVENT peer=%s alive=%v ws.Alive=%+v\n", myID, pe.PeerID, pe.Alive, ws.Alive)
 
 			if pe.Alive {
 				for key, info := range localOrderView {
