@@ -52,7 +52,7 @@ mainLoop:
 
 			if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 				confirmOrderInWorldState(&worldState, key)
-				changed = true
+				//changed = true
 				
 				
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
