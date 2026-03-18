@@ -104,10 +104,3 @@ func (s *Supervisor) publishAlivenessTransistion(updates []peerUpdate) {
 		s.PeerEventTx <- toPeerEvent(u)
 	}
 }
-
-func toPeerEvent(u peerUpdate) config.PeerEvent {
-	return config.PeerEvent{
-		PeerID: u.peerID,
-		Alive:  u.newState == PeerStateAlive,
-	}
-}

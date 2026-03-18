@@ -44,6 +44,35 @@ func NewConfig(myID string) Config {
 	}
 }
 
+type peerUpdate struct {
+	peerID   string
+	newState PeerState
+	oldState PeerState
+}
+
+type peerInfo struct {
+	lastReceivedCounter uint8
+	lastSeenAtTick      uint8 //localTickWhenLastSeen
+	state               PeerState
+	suspectedBy         map[string]bool
+}
+
+
+func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
+	return peerUpdate{
+		peerID:   peerID,
+		newState: PeerStateAlive,
+		oldState: oldState,
+	}
+}
+
+func toPeerEvent(u peerUpdate) config.PeerEvent {
+	return config.PeerEvent{
+		PeerID: u.peerID,
+		Alive:  u.newState == PeerStateAlive,
+	}
+}
+
 // Hjelpere for å lese konfig-verdier
 func (c Config) tickInterval() time.Duration { return c.SupervisorConfig.TickInterval }
 func (c Config) suspectThreshold() int     { return c.SupervisorConfig.SuspectThreshold }

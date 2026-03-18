@@ -4,12 +4,7 @@ import (
 	"heis/msgfreshness"
 )
 
-type peerInfo struct {
-	lastReceivedCounter uint8
-	lastSeenAtTick      uint8 //localTickWhenLastSeen
-	state               PeerState
-	suspectedBy         map[string]bool
-}
+
 
 type PeerTracker struct {
 	peers             map[string]*peerInfo
@@ -17,11 +12,6 @@ type PeerTracker struct {
 	consensusRequired int
 }
 
-type peerUpdate struct {
-	peerID   string
-	newState PeerState
-	oldState PeerState
-}
 
 func NewPeerTracker(suspectThreshold, consensusRequired int) *PeerTracker {
 	return &PeerTracker{
@@ -227,12 +217,4 @@ func (pt *PeerTracker) getNonAlivePeers() []string {
 		}
 	}
 	return suspected
-}
-
-func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
-	return peerUpdate{
-		peerID:   peerID,
-		newState: PeerStateAlive,
-		oldState: oldState,
-	}
 }
