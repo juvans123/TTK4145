@@ -76,10 +76,9 @@ func (s *Supervisor) sendHeartbeat(tracker *PeerTracker) {
 		Counter:        s.localTickCount,
 		SuspectedPeers: tracker.getNonAlivePeers(),
 	}
-	select {
-	case s.outgoingHeartbeatsCh <- hb:
-	default:
-	}
+	
+	s.outgoingHeartbeatsCh <- hb
+	
 }
 
 func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *PeerTracker) {
@@ -101,10 +100,8 @@ func (s *Supervisor) logStateTransitions(updates []peerUpdate) {
 
 func (s *Supervisor) publishAlivenessTransistion(updates []peerUpdate) {
 	for _, u := range updates {
-		select {
-		case s.PeerEventTx <- toPeerEvent(u):
-		default:
-		}
+		
+		s.PeerEventTx <- toPeerEvent(u)
 	}
 }
 
