@@ -128,12 +128,21 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 func buildCabOrdersOnly(ws *WorldState, myID string) Orders {
 	cabOrders := NewOrders(types.N_FLOORS)
 
+	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
+	if !ok {
+		return cabOrders	}
+
+	if len(confirmedCab) != types.N_FLOORS {
+		return cabOrders
+	}
+
 	for floor := 0; floor < types.N_FLOORS; floor++ {
 		cabOrders.Cab[floor] = ws.ConfirmedCabOrders[myID][floor]
 	}
 
 	return cabOrders
 }
+
 
 func buildLightState(ws *WorldState, myID string) types.LightState {
 	ls := types.LightState{
@@ -151,3 +160,5 @@ func buildLightState(ws *WorldState, myID string) types.LightState {
 
 	return ls
 }
+
+
