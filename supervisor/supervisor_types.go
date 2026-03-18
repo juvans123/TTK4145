@@ -1,8 +1,5 @@
 package supervisor
 
-import (
-	"heis/types"
-)
 
 type PeerState int
 
@@ -43,19 +40,4 @@ type peerInfo struct {
 	lastSeenAtTick      uint8
 	state               PeerState
 	suspectedBy         map[string]bool
-}
-
-func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
-	return peerUpdate{
-		peerID:   peerID,
-		newState: PeerStateAlive,
-		oldState: oldState,
-	}
-}
-
-func formatPeerAliveness(update peerUpdate) types.PeerAliveness {
-	return types.PeerAliveness{
-		ID:      update.peerID,
-		IsAlive: update.newState == PeerStateAlive,
-	}
 }
