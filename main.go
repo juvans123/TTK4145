@@ -20,7 +20,7 @@ const (
 	clearChannelBuffer     = 10
 	ordersToFsmBuffer      = 10
 	buttonLightsBuffer     = 16
-	peerAlivenessBuffer    = 16
+	peerAlivenessBuffer    = 64
 )
 
 func fanOutState(in <-chan config.ElevatorState, outs ...chan<- config.ElevatorState) {
