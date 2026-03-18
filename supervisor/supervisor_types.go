@@ -11,7 +11,8 @@ const (
 	PeerStateSuspected
 	PeerStateDead
 )
-//KUN FOR PRINTING
+
+// KUN FOR PRINTING
 func (ps PeerState) String() string {
 	switch ps {
 	case PeerStateAlive:
@@ -31,7 +32,6 @@ type Heartbeat struct {
 	SuspectedPeers []string
 }
 
-
 type peerUpdate struct {
 	peerID   string
 	newState PeerState
@@ -40,11 +40,10 @@ type peerUpdate struct {
 
 type peerInfo struct {
 	lastReceivedCounter uint8
-	lastSeenAtTick      uint8 
+	lastSeenAtTick      uint8
 	state               PeerState
 	suspectedBy         map[string]bool
 }
-
 
 func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
 	return peerUpdate{
@@ -54,9 +53,9 @@ func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
 	}
 }
 
-func toPeerEvent(u peerUpdate) types.PeerAliveness {
+func formatPeerAliveness(update peerUpdate) types.PeerAliveness {
 	return types.PeerAliveness{
-		ID: u.peerID,
-		IsAlive:  u.newState == PeerStateAlive,
+		ID:      update.peerID,
+		IsAlive: update.newState == PeerStateAlive,
 	}
 }

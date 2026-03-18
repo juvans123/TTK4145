@@ -3,7 +3,7 @@ package ordermanagement
 import ("heis/types")
 
 func OrdersAbove(orders *Orders, currentFloor int) bool {
-	for floor := currentFloor + 1; floor < len(orders.Cab); floor++ {
+	for floor := currentFloor + 1; floor < types.N_FLOORS; floor++ {
 		if HasOrderAtFloor(orders, floor) {
 			return true
 		}

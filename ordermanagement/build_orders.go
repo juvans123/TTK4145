@@ -100,12 +100,12 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	assignments, err := CallAssigner(path, inputAssigner)
 	if err != nil {
 		fmt.Printf("Assigner error: %v\n", err)
-		return buildCabOnlyOrders(ws, myID)
+		return buildCabOrdersOnly(ws, myID)
 	}
 
 	myAssignedHall, ok := assignments[myID]
 	if !ok {
-		return buildCabOnlyOrders(ws, myID)
+		return buildCabOrdersOnly(ws, myID)
 	}
 
 	myLocalOrders := NewOrders(types.N_FLOORS)
@@ -125,23 +125,14 @@ func buildMyLocalOrders(ws *WorldState, myID string) Orders {
 	return myLocalOrders
 }
 
-func buildCabOnlyOrders(ws *WorldState, myID string) Orders {
-	cabOnlyOrders := NewOrders(types.N_FLOORS)
-
-	confirmedCab, ok := ws.ConfirmedCabOrders[myID]
-	if !ok {
-		return cabOnlyOrders
-	}
-
-	if len(confirmedCab) != types.N_FLOORS {
-		return cabOnlyOrders
-	}
+func buildCabOrdersOnly(ws *WorldState, myID string) Orders {
+	cabOrders := NewOrders(types.N_FLOORS)
 
 	for floor := 0; floor < types.N_FLOORS; floor++ {
-		cabOnlyOrders.Cab[floor] = confirmedCab[floor]
+		cabOrders.Cab[floor] = ws.ConfirmedCabOrders[myID][floor]
 	}
 
-	return cabOnlyOrders
+	return cabOrders
 }
 
 func buildLightState(ws *WorldState, myID string) types.LightState {

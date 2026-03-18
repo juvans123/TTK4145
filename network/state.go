@@ -20,8 +20,11 @@ func BroadcastLocalState(
 
 	for {
 		select {
-		case st := <-localStateCh:
-			last = acceptIncomingState(st, myID)
+		case state := <-localStateCh:
+			if state.ID != myID {
+				state.ID = myID
+			}
+			last = state
 
 		case <-ticker.C:
 			counter++
@@ -38,14 +41,6 @@ func initialState(myID string) types.ElevatorState {
 		Behaviour:   types.BehIdle,
 		CabRequests: make([]bool, types.N_FLOORS),
 	}
-}
-
-
-func acceptIncomingState(st types.ElevatorState, myID string) types.ElevatorState {
-	if st.ID != myID {
-		st.ID = myID
-	}
-	return st
 }
 
 func transmitState(netTx chan<- types.ElevatorState, state *types.ElevatorState, counter uint8) {

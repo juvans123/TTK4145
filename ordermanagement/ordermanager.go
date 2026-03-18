@@ -13,11 +13,10 @@ func Run(
 	peerStateCh <-chan types.ElevatorState,
 	peerAlivenessCh <-chan types.PeerAliveness,
 	ordersToFsmCh chan<- Orders,
-	OrdersBroadcastCh chan<- OrderMsg, // OM -> Network
-	OrdersFromNetwork <-chan OrderMsg, // OM <- Network
+	OrdersBroadcastCh chan<- OrderMsg,
+	OrdersFromNetwork <-chan OrderMsg,
 	setButtonLight chan<- types.LightState,
 ) {
-	//init?
 	worldState := NewWorldState()
 	localOrderView := make(OrderRegister)
 
@@ -95,7 +94,7 @@ mainLoop:
 		case newLocalState := <-localStateCh:
 
 			prevLocalState := worldState.States[myID]
-			newLocalState.ID = myID //fjerne denne linjer og skrive myID direkte i linjen under
+			newLocalState.ID = myID
 			worldState.States[newLocalState.ID] = newLocalState
 
 			if prevLocalState.IsImmobile != newLocalState.IsImmobile {
