@@ -59,11 +59,12 @@ func (s *Supervisor) broadcastHeartbeatAndDetectTimeouts(tracker *PeerTracker) {
 	s.localTickCount++
 	s.sendHeartbeat(tracker)
 
-	tracker.markTimedOutPeersAsSuspected(s.localTickCount)
+	susUpdate:=tracker.markTimedOutPeersAsSuspected(s.localTickCount)
+	s.logStateTransitions(susUpdate)
+
 
 	deadUpdates := tracker.confirmDeadPeersIfConsensusReached()
 	s.logStateTransitions(deadUpdates)
-	s.logStateTransitions(tracker.markTimedOutPeersAsSuspected(s.localTickCount))
 	s.notifyOrderManagerOfConfirmedTransitions(deadUpdates)
 }
 
