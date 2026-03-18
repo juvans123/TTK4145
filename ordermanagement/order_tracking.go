@@ -4,7 +4,7 @@ import (
 	types "heis/types"
 )
 
-func setLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase OrderPhase, myID string,) OrderInfo{
+func setLocalOrderPhase(localOrderview OrderRegister, key OrderKey, newPhase OrderPhase, myID string) OrderInfo {
 	localOrder := localOrderview[key]
 	localOrder.Phase = newPhase
 	localOrder.SeenBy = map[string]bool{myID: true}
@@ -12,6 +12,18 @@ func setLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase Orde
 	return localOrder
 }
 
+// setLocalOrderPhaseKeepSeenBy sets a new phase without resetting SeenBy.
+// Use this when transitioning to Served so allAliveHaveSeen works correctly.
+func setLocalOrderPhaseKeepSeenBy(localOrderView OrderRegister, key OrderKey, newPhase OrderPhase, myID string) OrderInfo {
+	localOrder := localOrderView[key]
+	localOrder.Phase = newPhase
+	if localOrder.SeenBy == nil {
+		localOrder.SeenBy = make(map[string]bool)
+	}
+	localOrder.SeenBy[myID] = true
+	localOrderView[key] = localOrder
+	return localOrder
+}
 
 func ownerForButton(myID string, button types.ButtonType) string {
 	if button == types.BT_Cab {

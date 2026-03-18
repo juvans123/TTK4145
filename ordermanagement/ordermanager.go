@@ -34,13 +34,17 @@ mainLoop:
 
 		select {
 		case btn := <-buttonPressedCh:
-
 			ownerID := ownerForButton(myID, btn.Button)
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
 			localOrder := localOrderView[key]
 
 			if localOrder.Phase == Unconfirmed || localOrder.Phase == Confirmed {
 				continue mainLoop
+			}
+
+			// Fix 4: Delete stale Served entry so a new press is handled correctly
+			if localOrder.Phase == Served {
+				delete(localOrderView, key)
 			}
 
 			localOrder = setLocalOrderPhase(localOrderView, key, Unconfirmed, myID)
@@ -50,7 +54,6 @@ mainLoop:
 					confirmOrderInWorldState(&worldState, key)
 					changed = true
 				}
-
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
 			}
 
@@ -77,22 +80,22 @@ mainLoop:
 					continue
 				}
 
-				localOrder = setLocalOrderPhase(localOrderView, key, Served, myID)
+				// Fix 2: Preserve SeenBy when transitioning to Served
+				localOrder = setLocalOrderPhaseKeepSeenBy(localOrderView, key, Served, myID)
 
 				if isOrderConfirmedInWorldState(&worldState, key) {
 					clearOrderInWorldState(&worldState, key)
-					changed = true
 				}
-				//changed = true
+
+				// Fix 1: Always set changed so FSM and lights are updated
+				changed = true
 
 				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 					delete(localOrderView, key)
 				}
-
 			}
 
 		case newLocalState := <-localStateCh:
-
 			prevLocalState := worldState.States[myID]
 			newLocalState.ID = myID
 			worldState.States[newLocalState.ID] = newLocalState
@@ -119,9 +122,14 @@ mainLoop:
 			}
 
 			if peer.IsAlive {
+				// Fix 3: Also clean up Served hall orders, not only cab orders
 				for key, info := range localOrderView {
-					if key.OwnerID == myID && key.Button == types.BT_Cab && info.Phase == Served {
-						delete(localOrderView, key)
+					if info.Phase == Served {
+						if (key.OwnerID == myID && key.Button == types.BT_Cab) ||
+							key.Button == types.BT_HallUp ||
+							key.Button == types.BT_HallDown {
+							delete(localOrderView, key)
+						}
 					}
 				}
 			}
@@ -162,7 +170,6 @@ mainLoop:
 					changed = true
 				}
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
-				//changed = true
 
 			case Confirmed:
 				if !isOrderConfirmedInWorldState(&worldState, key) {
