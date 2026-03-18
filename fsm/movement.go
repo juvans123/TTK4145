@@ -81,41 +81,4 @@ func resumeTowardsLastKnownFloor(travelDir types.TravelDirection) elevio.MotorDi
 		return elevio.MD_Stop
 	}
 }
-/* func stopMovement(
-	e *Elevator,
-	motorImmobileTimer *time.Timer,
-	motorImmobileTimerActive *bool,
-) {
-	stopMotor()
-	stopMotorTimer(motorImmobileTimer, motorImmobileTimerActive)
-	e.Dir = elevio.MD_Stop
-	e.Behavior = EB_Idle
-}
- */
 
-/* func openDoor(
-	e *Elevator,
-	doorTimer DoorTimer,
-) {
-	e.Behavior = EB_DoorOpen
-	e.Dir = elevio.MD_Stop
-	elevio.SetDoorOpenLamp(true)
-	doorTimer.Reset(doorOpenDuration)
-} */
-
-
-/* func applyChosenDirection(
-	e *Elevator,
-	motorImmobileTimer *time.Timer,
-	motorImmobileTimerActive *bool,
-) {
-	travelDirection, behavior, motorDirection := chooseDirection(e)
-	e.TravelDir = travelDirection
-	e.Behavior = behavior
-	e.Dir = motorDirection
-
-	if e.Behavior == EB_Moving {
-		setMotor(e.Dir)
-		startMotorTimer(motorImmobileTimer, motorImmobileTimerActive)
-	}
-} */
