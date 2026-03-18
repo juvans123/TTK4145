@@ -9,7 +9,7 @@ import (
 
 const (
 	doorOpenDuration           = 3 * time.Second
-	motorImmobileTimeout       = 3 * time.Second
+	motorImmobileTimeout       = 4 * time.Second
 	obstructionImmobileTimeout = 4 * time.Second
 )
 
