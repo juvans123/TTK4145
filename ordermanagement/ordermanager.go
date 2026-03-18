@@ -49,7 +49,8 @@ mainLoop:
 			localOrder = setLocalOrderPhase(localOrderView, key, Unconfirmed, myID)
 
 			if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
-				if confirmOrderInWorldState(&worldState, key) {
+				if !isOrderConfirmedInWorldState(&worldState, key) {
+					confirmOrderInWorldState(&worldState, key)
 					changed = true
 				}
 				
@@ -83,10 +84,11 @@ mainLoop:
 
 				localOrder = setLocalOrderPhase(localOrderView, key, Served, myID)
 
-				if clearOrderInWorldState(&worldState, key) {
+				if isOrderConfirmedInWorldState(&worldState, key) {
+					clearOrderInWorldState(&worldState, key)
 					changed = true
 				}
-				changed = true
+				//changed = true 
 				
 				if allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 					delete(localOrderView, key)
@@ -164,26 +166,29 @@ mainLoop:
 
 			switch localOrder.Phase {
 			case Unconfirmed:
-				if confirmOrderInWorldState(&worldState, key) {
+				if !isOrderConfirmedInWorldState(&worldState, key) {
+					confirmOrderInWorldState(&worldState, key)
 					changed = true
 				}
 				localOrder = setLocalOrderPhase(localOrderView, key, Confirmed, myID)
-				changed = true
+				//changed = true
 
 
 			case Confirmed:
-				if confirmOrderInWorldState(&worldState, key) {
+				if !isOrderConfirmedInWorldState(&worldState, key) {
+					confirmOrderInWorldState(&worldState, key)
 					changed = true
 				}
 				
 
 			case Served:
-				if clearOrderInWorldState(&worldState, key) {
+				if isOrderConfirmedInWorldState(&worldState, key) {
+					clearOrderInWorldState(&worldState, key)
 					changed = true
 				}
 				
 				delete(localOrderView, key)
-				changed = true
+				//changed = true
 			}
 
 		case <-orderBroadcastTicker.C: 
