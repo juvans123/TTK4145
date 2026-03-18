@@ -17,8 +17,6 @@ func Run(
 	OrdersFromNetwork <-chan OrderMsg, // OM <- Network
 	setButtonLight chan<- config.LightState,
 ) {
-
-
 	//init?
 	worldState := NewWorldState()
 	localOrderView := make(OrderRegister)
@@ -132,8 +130,6 @@ mainLoop:
 				}
 			}
 
-
-
 		case peerOrder := <-OrdersFromNetwork:
 			key := makeOrderKey(peerOrder.OwnerID, peerOrder.Floor, peerOrder.Button)
 			localOrder := localOrderView[key]
@@ -185,8 +181,6 @@ mainLoop:
 				changed = true
 			}
 
-
-
 		case <-orderBroadcastTicker.C: 
 			for key, localOrder := range localOrderView {
 				if localOrder.Phase == NoOrder {
@@ -209,4 +203,3 @@ mainLoop:
 	}
 }
 
-//-------
