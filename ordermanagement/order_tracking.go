@@ -12,6 +12,24 @@ func setLocalOrderPhase(localOrderview OrderRegister, key OrderKey,newPhase Orde
 	return localOrder
 }
 
+// ordermanagement/order_tracking.go – ny hjelpefunksjon
+func setLocalOrderPhaseKeepSeenBy(
+    localOrderView OrderRegister,
+    key OrderKey,
+    newPhase OrderPhase,
+    myID string,
+) OrderInfo {
+    localOrder := localOrderView[key]
+    localOrder.Phase = newPhase
+    // Behold eksisterende SeenBy, merk bare oss selv
+    if localOrder.SeenBy == nil {
+        localOrder.SeenBy = make(map[string]bool)
+    }
+    localOrder.SeenBy[myID] = true
+    localOrderView[key] = localOrder
+    return localOrder
+}
+
 
 func ownerForButton(myID string, button types.ButtonType) string {
 	if button == types.BT_Cab {

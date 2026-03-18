@@ -77,7 +77,7 @@ mainLoop:
 					continue
 				}
 
-				localOrder = setLocalOrderPhase(localOrderView, key, Served, myID)
+				localOrder = setLocalOrderPhaseKeepSeenBy(localOrderView, key, Served, myID)
 
 				if isOrderConfirmedInWorldState(&worldState, key) {
 					clearOrderInWorldState(&worldState, key)
