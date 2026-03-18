@@ -37,7 +37,7 @@ mainLoop:
 		select {
 		case btn := <-buttonPressedCh:
 
-			//lage en funksjon som gjør dette?
+			
 			ownerID := ownerForButton(myID, btn.Button)
 			key := makeOrderKey(ownerID, btn.Floor, btn.Button)
 			localOrder := localOrderView[key]
@@ -72,7 +72,7 @@ mainLoop:
 					continue
 				}
 
-				//lage en funksjon som gjør dette?
+				
 				ownerID := ownerForButton(myID, clearInfo.button)
 				key := makeOrderKey(ownerID, clear.Floor, clearInfo.button)
 				localOrder := localOrderView[key]
@@ -115,7 +115,6 @@ mainLoop:
 			}
 
 		case peer := <-peerAlivenessCh:
-					//her vil jeg kalle kanalen peerAlivenesschange, inni peerevent så skal jeg fjerne peer før id, og døpe om peerevent til peeralivness
 			previousLiveness := worldState.Alive[peer.ID]
 			incomingLiveness := peer.IsAlive
 
@@ -123,8 +122,7 @@ mainLoop:
 				worldState.Alive[peer.ID] = incomingLiveness
 				changed = true
 			}
-			
-			//denne må fikses!! chat melder at den er smart, men den er litt random også- så vabnskelig å navngi
+
 			if peer.IsAlive {
 				for key, info := range localOrderView {
 					if key.OwnerID == myID && key.Button == types.BT_Cab && info.Phase == Served {
@@ -157,7 +155,7 @@ mainLoop:
 			}
 
 			localOrder.SeenBy[myID] = true
-			localOrderView[key] = localOrder //heller skriv localOrderView[key].seenBy[myID] = true, og fjerne linjen over
+			localOrderView[key] = localOrder 
 
 			if localOrder.Phase == Unconfirmed && !allAliveHaveSeen(localOrder.SeenBy, worldState.Alive) {
 				continue mainLoop

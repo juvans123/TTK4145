@@ -91,7 +91,10 @@ func main() {
 	go network.ForwardOutgoingHeartbeats(heartbeatFromSupervisorCh, heartbeatToBroadcastTxCh)
 	go network.DeliverIncomingHeartbeats(myID, heartbeatFromBroadcastRxCh, heartbeatToSupervisorCh)
 
-	// Supervisor: peer aliveness monitoring
+
+
+
+	
 	peerAlivenessCh := make(chan types.PeerAliveness, peerAlivenessBuffer)
 
 	sup := supervisor.New(
@@ -103,7 +106,7 @@ func main() {
 
 	go sup.MonitorPeerHealth(context.Background())
 
-	//Ordermanager
+
 	go om.Run(myID,
 		buttonPressedCh,
 		clearCh,
@@ -116,7 +119,7 @@ func main() {
 		buttonLightsCh,
 	)
 
-	//fsm
+	
 	go fsm.Run(myID,
 		doorTimer,
 		floorCh,
