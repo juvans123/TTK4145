@@ -28,7 +28,7 @@ func resetTimer(timer *time.Timer, duration time.Duration) {
 	timer.Reset(duration)
 }
 
-func stopTimerChannel(timer *time.Timer) {
+func stopTimer(timer *time.Timer) {
 	if !timer.Stop() {
 		select {
 		case <-timer.C:
@@ -44,7 +44,7 @@ func startTimer(timer *time.Timer, timerIsActive *bool, duration time.Duration) 
 
 func stopActiveTimer(timer *time.Timer, timerIsActive *bool) {
 	if *timerIsActive {
-		stopTimerChannel(timer)
+		stopTimer(timer)
 	}
 	*timerIsActive = false
 }

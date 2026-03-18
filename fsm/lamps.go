@@ -5,14 +5,6 @@ import (
 	"heis/types"
 )
 
-func setMotor(dir elevio.MotorDirection) {
-	elevio.SetMotorDirection(dir)
-}
-
-func stopMotor() {
-	elevio.SetMotorDirection(elevio.MD_Stop)
-}
-
 func updateButtonLights(lightState types.LightState) {
 	for floor := 0; floor < types.N_FLOORS; floor++ {
 		elevio.SetButtonLamp(types.BT_HallUp, floor, lightState.Hall[floor][types.BT_HallUp])

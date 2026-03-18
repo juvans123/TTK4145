@@ -2,9 +2,9 @@ package fsm
 
 import (
 	//"fmt"
-	types "heis/types"
-	om "heis/ordermanagement"
 	"heis/elevio"
+	om "heis/ordermanagement"
+	types "heis/types"
 	"time"
 )
 
@@ -41,7 +41,7 @@ func openDoorAndStartTimer(doorTimer *time.Timer) {
 
 func closeDoorAndStopTimer(doorTimer *time.Timer) {
 	elevio.SetDoorOpenLamp(false)
-	stopTimerChannel(doorTimer)
+	stopTimer(doorTimer)
 }
 
 func ComputeClearEvent(orders *om.Orders, floor int, travelDir types.TravelDirection) types.ClearEvent {
@@ -69,7 +69,7 @@ func ComputeClearEvent(orders *om.Orders, floor int, travelDir types.TravelDirec
 		clear.HallDown = hallDown
 		return clear
 	}
-	
+
 	switch travelDir {
 	case types.TD_Up:
 		clear.HallUp = hallUp
@@ -82,7 +82,6 @@ func ComputeClearEvent(orders *om.Orders, floor int, travelDir types.TravelDirec
 
 	return clear
 }
-
 
 /* func ComputeClearEvent(orders *om.Orders, floor int, travelDirection config.TravelDirection) config.ClearEvent {
 	clearEvent := config.ClearEvent{Floor: floor}

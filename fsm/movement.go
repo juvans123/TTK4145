@@ -4,9 +4,15 @@ import (
 	"heis/elevio"
 	types "heis/types"
 	om "heis/ordermanagement"
-	//"time"
 )
 
+func setMotor(dir elevio.MotorDirection) {
+	elevio.SetMotorDirection(dir)
+}
+
+func stopMotor() {
+	elevio.SetMotorDirection(elevio.MD_Stop)
+}
 
 func shouldStop(e *Elevator) bool {
 	floor := e.Floor
