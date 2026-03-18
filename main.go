@@ -35,7 +35,7 @@ func main() {
 	flag.Parse()
 
 	myID := *idFlag
-	netCfg := network.DefaultNetworkConfig()
+	netCfg := network.DefaultNetworkPorts()
 	doorTimer := fsm.NewStoppedDoorTimer()
 
 	elevio.Init(*addrFlag, *floorsFlag)
@@ -95,7 +95,7 @@ func main() {
 	peerAlivenessCh := make(chan config.PeerAliveness, peerAlivenessBuffer)
 
 	sup := supervisor.New(
-		supervisor.NewConfig(myID),
+		supervisor.NewSupervisorInit(myID),
 		heartbeatFromSupervisorCh, // outgoing heartbeats
 		heartbeatToSupervisorCh,   // incoming heartbeats from network
 		peerAlivenessCh,           // detected peer liveness changes

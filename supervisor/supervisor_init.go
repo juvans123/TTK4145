@@ -2,33 +2,32 @@ package supervisor
 
 import "time"
 
-type SupervisorConfig struct {
+type SupervisorParams struct {
 	TickInterval      time.Duration
 	SuspectThreshold  int
 	ConsensusRequired int
 }
 
-
-func DefaultSupervisorConfig() SupervisorConfig {
-	return SupervisorConfig{
+func defaultSupervisorParams() SupervisorParams {
+	return SupervisorParams{
 		TickInterval:      100 * time.Millisecond,
 		SuspectThreshold:  15,
 		ConsensusRequired: 2,
 	}
 }
 
-type Config struct {
-	MyID             string
-	SupervisorConfig SupervisorConfig
+type SupervisorInit struct {
+	MyID   string
+	Params SupervisorParams
 }
 
-func NewConfig(myID string) Config {
-	return Config{
-		MyID:             myID,
-		SupervisorConfig: DefaultSupervisorConfig(),
+func NewSupervisorInit(myID string) SupervisorInit {
+	return SupervisorInit{
+		MyID:   myID,
+		Params: defaultSupervisorParams(),
 	}
 }
 
-func (c Config) tickInterval() time.Duration { return c.SupervisorConfig.TickInterval }
-func (c Config) suspectThreshold() int     { return c.SupervisorConfig.SuspectThreshold }
-func (c Config) consensusRequired() int    { return c.SupervisorConfig.ConsensusRequired }
+func (s SupervisorInit) tickInterval() time.Duration { return s.Params.TickInterval }
+func (s SupervisorInit) suspectThreshold() int       { return s.Params.SuspectThreshold }
+func (s SupervisorInit) consensusRequired() int      { return s.Params.ConsensusRequired }
