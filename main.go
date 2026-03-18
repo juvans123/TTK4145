@@ -35,7 +35,7 @@ func main() {
 	flag.Parse()
 
 	myID := *idFlag
-	netCfg := config.DefaultNetworkConfig()
+	netCfg := network.DefaultNetworkConfig()
 	doorTimer := fsm.NewStoppedDoorTimer()
 
 	elevio.Init(*addrFlag, *floorsFlag)

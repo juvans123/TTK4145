@@ -1,7 +1,5 @@
 package config
 
-import "time"
-
 const N_FLOORS = 4
 
 type TravelDirection int
@@ -72,33 +70,7 @@ type LightState struct {
 	Hall [N_FLOORS][2]bool
 	Cab  []bool
 }
-type SupervisorConfig struct {
-	TickInterval      time.Duration
-	SuspectThreshold  int
-	ConsensusRequired int
-}
 
-func DefaultSupervisorConfig() SupervisorConfig {
-	return SupervisorConfig{
-		TickInterval:      100 * time.Millisecond,
-		SuspectThreshold:  15,
-		ConsensusRequired: 2,
-	}
-}
-
-type NetworkConfig struct {
-	StatePort     int
-	OrderPort     int
-	HeartbeatPort int
-}
-
-func DefaultNetworkConfig() NetworkConfig {
-	return NetworkConfig{
-		StatePort:     16570,
-		OrderPort:     16571,
-		HeartbeatPort: 16647,
-	}
-}
 
 const maxToleratedCounterJump = 128 //half of uint8 range
 
