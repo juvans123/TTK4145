@@ -66,10 +66,10 @@ func newAliveUpdate(peerID string, oldState PeerState) peerUpdate {
 	}
 }
 
-func toPeerEvent(u peerUpdate) config.PeerEvent {
-	return config.PeerEvent{
-		PeerID: u.peerID,
-		Alive:  u.newState == PeerStateAlive,
+func toPeerEvent(u peerUpdate) config.PeerAliveness {
+	return config.PeerAliveness{
+		ID: u.peerID,
+		IsAlive:  u.newState == PeerStateAlive,
 	}
 }
 

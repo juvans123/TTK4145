@@ -11,7 +11,7 @@ func Run(
 	clearCh <-chan config.ClearEvent,
 	localStateCh <-chan config.ElevatorState,
 	peerStateCh <-chan config.ElevatorState,
-	peerAlivenessCh <-chan config.PeerEvent,
+	peerAlivenessCh <-chan config.PeerAliveness,
 	ordersToFsmCh chan<- Orders,
 	OrdersBroadcastCh chan<- OrderMsg, // OM -> Network
 	OrdersFromNetwork <-chan OrderMsg, // OM <- Network
@@ -116,16 +116,16 @@ mainLoop:
 
 		case peer := <-peerAlivenessCh:
 					//her vil jeg kalle kanalen peerAlivenesschange, inni peerevent så skal jeg fjerne peer før id, og døpe om peerevent til peeralivness
-			previousLiveness := worldState.Alive[peer.PeerID]
-			incomingLiveness := peer.Alive
+			previousLiveness := worldState.Alive[peer.ID]
+			incomingLiveness := peer.IsAlive
 
 			if previousLiveness != incomingLiveness {
-				worldState.Alive[peer.PeerID] = incomingLiveness
+				worldState.Alive[peer.ID] = incomingLiveness
 				changed = true
 			}
 			
 			//denne må fikses!! chat melder at den er smart, men den er litt random også- så vabnskelig å navngi
-			if peer.Alive {
+			if peer.IsAlive {
 				for key, info := range localOrderView {
 					if key.OwnerID == myID && key.Button == config.BT_Cab && info.Phase == Served {
 						delete(localOrderView, key)
