@@ -2,7 +2,6 @@ package network
 
 import (
 	"heis/config"
-	"heis/msgfreshness"
 	"log"
 	"time"
 )
@@ -60,11 +59,10 @@ func RunStateReceive(
 		}
 
 	 	last, known := lastCounter[state.ID]
-		if known && !msgfreshness.IsSequentiallyNewer(state.Counter, last){
+		if known && config.IsSequentiallyNewer(state.Counter, last){
 			//fmt.Printf("[RunStateReceive %s] DROP from=%s counter=%d last=%d\n",myID, state.ID, state.Counter, last)
 			continue //filtrer duplikat eller forsinket
 		}
-		//fmt.Printf("[RunStateReceive %s] ACCEPT from=%s counter=%d last=%d known=%v cab=%v\n",myID, state.ID, state.Counter, last, known, state.CabRequests)
  
 		lastCounter[state.ID] = state.Counter //known settes true indirekte her
 		

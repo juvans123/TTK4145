@@ -1,9 +1,5 @@
 package network
 
-//Hensikt er å samle alle sendinger i en modul (network) per sendingstype
-//Problemet er at denne ble sendt i om.Run, OM trenger ikke å kjenne til nettverkskanalen direkte
-
-
 import (
 	om "heis/ordermanagement"
 )

@@ -1,9 +1,8 @@
 package supervisor
 
 import (
-	"heis/msgfreshness"
+	"heis/config"
 )
-
 
 
 type PeerTracker struct {
@@ -42,12 +41,11 @@ func (pt *PeerTracker) hasDeathConsensusFor(peerID string) bool {
 		suspicionCount++
 	}
 
-	// We include ourselves in the alive count since aliveCount() only tracks remote peers. (totalAliveNodes?)
-	aliveNodes := pt.countAliveRemotePeers() + 1
+	totalAliveNodes := pt.countAliveRemotePeers() + 1
 
 	effectiveRequired := pt.consensusRequired
-	if aliveNodes < effectiveRequired {
-		effectiveRequired = aliveNodes
+	if totalAliveNodes < effectiveRequired {
+		effectiveRequired = totalAliveNodes
 	}
 
 	return suspicionCount >= effectiveRequired
@@ -60,7 +58,7 @@ func (pt *PeerTracker) markTimedOutPeersAsSuspected(currentTick uint8) []peerUpd
 		if peer.state == PeerStateDead {
 			continue
 		}
-		missedHeartbeats := msgfreshness.MissedTicksBetween(currentTick, peer.lastSeenAtTick)
+		missedHeartbeats := config.MissedTicksBetween(currentTick, peer.lastSeenAtTick)
 		if missedHeartbeats >= pt.suspectThreshold && peer.state == PeerStateAlive {
 			updates = append(updates, peerUpdate{
 				peerID:   id,
@@ -109,14 +107,13 @@ func (pt *PeerTracker) recordHeartbeatFromSender(hb Heartbeat, localTick uint8) 
 		return pt.rejoinPeer(hb, sender, localTick), true
 	}
 
-	if msgfreshness.IsSequentiallyNewer(hb.Counter, sender.lastReceivedCounter) {
+	if config.IsSequentiallyNewer(hb.Counter, sender.lastReceivedCounter) {
 		return pt.refreshPeerCounters(hb, sender, localTick)
 	}
 
 	return peerUpdate{}, false
 }
 
-// Vurder om register og rejoin kan slåes sammen?
 func (pt *PeerTracker) registerPeer(hb Heartbeat, localTicker uint8) peerUpdate {
 	info := &peerInfo{}
 	resetPeerToAlive(info, hb, localTicker)
@@ -208,7 +205,6 @@ func (pt *PeerTracker) applyUpdates(updates []peerUpdate) {
 	}
 }
 
-// NÅ legger vi til Dead også i lista VURDER OM må fjernes
 func (pt *PeerTracker) getNonAlivePeers() []string {
 	var suspected []string
 	for id, peer := range pt.peers {
