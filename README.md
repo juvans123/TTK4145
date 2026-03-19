@@ -1,4 +1,4 @@
-# Elevator Project
+# TTK4145: Elevator Project
 ## Problem Description
 The goal of this project is to design and implement a distributed control system for three elevators. Each elevator has its own local control interface, including cab call buttons, a stop button, and an obstruction switch. Hall calls, however, are shared across the system: they are visible on all elevators and must be coordinated globally. 
 
@@ -25,16 +25,27 @@ Both elevator states and order messages are broadcasted continuously. This allow
 - Network: Handles communication between elevators using UDP broadcasting. Transmits and receives elevator states, order messages, and heartbeats 
 
 ## Program Usage
-The program is started from the command line:  
+Before starting the elevator programs, an elevator server must be running for each elevator instance:
 
->go run . -id <elevator_id> -addr < ip:port>. 
+>elevatorserver --port \<port\>
+
+### Example:  
+>elevatorserver --port 15657  
+>elevatorserver --port 15658  
+>elevatorserver --port 15659  
+
+Each elevator instance must connect to a corresponding server using the same port.
+
+The elevator program is started from the command line:  
+
+>go run . -id <elevator_id> -addr \<ip:port\>. 
 
 ### Example:  
 >go run . -id elev1 -addr localhost:15657  
 >go run . -id elev2 -addr localhost:15658  
 >go run . -id elev3 -addr localhost:15659  
 
-Each elevator instance must run with a unique ID and network address. 
+Each elevator instance must run with a unique ID and connect to a unique server address. 
 
 ### Network Ports
 The system uses the following fixed UDP broadcast ports:
