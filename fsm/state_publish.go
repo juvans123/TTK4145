@@ -1,8 +1,8 @@
 package fsm
 
 import (
-	"heis/elevio"
-	types "heis/types"
+	"elevator/elevio"
+	types "elevator/types"
 )
 
 func tryPublishInitialState(

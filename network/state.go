@@ -1,7 +1,7 @@
 package network
 
 import (
-	types "heis/types"
+	types "elevator/types"
 	"time"
 )
 

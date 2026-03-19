@@ -1,7 +1,7 @@
 package ordermanagement
 
 import (
-	"heis/types"
+	"elevator/types"
 )
 
 type Orders struct {

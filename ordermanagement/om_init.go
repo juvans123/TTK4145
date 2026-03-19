@@ -1,5 +1,5 @@
 package ordermanagement
-import ("heis/types")
+import ("elevator/types")
 
 func initLocalElevator(ws *WorldState, myID string) {
 	ws.Alive[myID] = true

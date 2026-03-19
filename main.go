@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"heis/elevio"
-	"heis/fsm"
-	"heis/network"
-	om "heis/ordermanagement"
-	"heis/supervisor"
-	"heis/types"
+	"elevator/elevio"
+	"elevator/fsm"
+	"elevator/network"
+	om "elevator/ordermanagement"
+	"elevator/supervisor"
+	"elevator/types"
 )
 
 const (

@@ -1,7 +1,7 @@
 package network
 
 import (
-	"heis/supervisor"
+	"elevator/supervisor"
 )
 
 func ForwardOutgoingHeartbeats(

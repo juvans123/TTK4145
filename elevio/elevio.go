@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 	"time"
-	types "heis/types"
+	types "elevator/types"
 )
 
 func Init(addr string, numFloors int) {

@@ -1,8 +1,8 @@
 package fsm
 
 import (
-	"heis/elevio"
-	"heis/types"
+	"elevator/elevio"
+	"elevator/types"
 )
 
 func updateButtonLights(lightState types.LightState) {

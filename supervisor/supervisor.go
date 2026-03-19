@@ -2,7 +2,7 @@ package supervisor
 import (
 	"context"
 	"fmt"
-	"heis/types"
+	"elevator/types"
 	"time"
 )
 

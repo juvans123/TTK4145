@@ -1,7 +1,7 @@
 package supervisor
 
 import (
-	"heis/types"
+	"elevator/types"
 )
 
 type PeerTracker struct {

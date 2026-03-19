@@ -1,7 +1,7 @@
 package network
 
 import (
-	om "heis/ordermanagement"
+	om "elevator/ordermanagement"
 )
 
 func ForwardOutgoingOrders(

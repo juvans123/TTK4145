@@ -1,7 +1,7 @@
 package fsm
 
 import (
-	"heis/elevio"
+	"elevator/elevio"
 	"time"
 )
 

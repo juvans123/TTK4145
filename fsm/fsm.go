@@ -1,9 +1,9 @@
 package fsm
 
 import (
-	"heis/elevio"
-	om "heis/ordermanagement"
-	"heis/types"
+	"elevator/elevio"
+	om "elevator/ordermanagement"
+	"elevator/types"
 	"time"
 )
 

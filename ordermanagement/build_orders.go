@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"heis/types"
+	"elevator/types"
 	"os/exec"
 )
 

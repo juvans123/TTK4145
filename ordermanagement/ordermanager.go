@@ -1,7 +1,7 @@
 package ordermanagement
 
 import (
-	types "heis/types"
+	types "elevator/types"
 	"time"
 )
 

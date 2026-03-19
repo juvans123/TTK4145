@@ -2,9 +2,9 @@ package fsm
 
 import (
 	//"fmt"
-	"heis/elevio"
-	om "heis/ordermanagement"
-	types "heis/types"
+	"elevator/elevio"
+	om "elevator/ordermanagement"
+	types "elevator/types"
 	"time"
 )
 

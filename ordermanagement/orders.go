@@ -1,6 +1,6 @@
 package ordermanagement
 
-import ("heis/types")
+import ("elevator/types")
 
 func OrdersAbove(orders *Orders, currentFloor int) bool {
 	for floor := currentFloor + 1; floor < types.N_FLOORS; floor++ {

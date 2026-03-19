@@ -1,9 +1,9 @@
 package fsm
 
 import (
-	"heis/elevio"
-	types "heis/types"
-	om "heis/ordermanagement"
+	"elevator/elevio"
+	types "elevator/types"
+	om "elevator/ordermanagement"
 )
 
 func setMotor(dir elevio.MotorDirection) {
