@@ -1,7 +1,6 @@
 package fsm
 
 import (
-	//"fmt"
 	"elevator/elevio"
 	om "elevator/ordermanagement"
 	types "elevator/types"
