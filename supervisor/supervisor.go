@@ -1,7 +1,4 @@
 package supervisor
-
-// VURDER HANDLEINCOMING HEARTBEATS
-
 import (
 	"context"
 	"fmt"
@@ -51,10 +48,15 @@ func (s *Supervisor) MonitorPeerHealth(context context.Context) error {
 			s.localTickCount++
 			s.sendHeartbeat(tracker)
 			updates := s.detectAndConfirmPeerFailures(tracker)
-			s.publishAlivenessTransistion(updates)
+			s.publishAlivenessTransitions(updates)
 
 		case hb := <-s.incomingHeartbeatsCh:
-			s.handleIncomingHeartbeat(hb, tracker)
+			if hb.PeerID == s.init.MyID {
+				break
+			}
+			updates := tracker.receivePeerHeartbeat(hb, s.init.MyID, s.localTickCount)
+			s.publishAlivenessTransitions(updates)
+			s.logStateTransitions(updates)
 		}
 	}
 }
@@ -78,16 +80,6 @@ func (s *Supervisor) sendHeartbeat(tracker *PeerTracker) {
 
 }
 
-func (s *Supervisor) handleIncomingHeartbeat(hb Heartbeat, tracker *PeerTracker) {
-	if hb.PeerID == s.init.MyID {
-		return
-	}
-	updates := tracker.receivePeerHeartbeat(hb, s.init.MyID, s.localTickCount)
-	s.publishAlivenessTransistion(updates)
-	s.logStateTransitions(updates)
-
-}
-
 func (s *Supervisor) logStateTransitions(updates []peerUpdate) {
 	for _, u := range updates {
 		fmt.Printf("[Supervisor %s] %s: %s -> %s\n",
@@ -95,7 +87,7 @@ func (s *Supervisor) logStateTransitions(updates []peerUpdate) {
 	}
 }
 
-func (s *Supervisor) publishAlivenessTransistion(updates []peerUpdate) {
+func (s *Supervisor) publishAlivenessTransitions(updates []peerUpdate) {
 	for _, u := range updates {
 
 		s.peerAlivenessCh <- formatPeerAliveness(u)
