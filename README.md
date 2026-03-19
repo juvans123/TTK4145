@@ -34,5 +34,12 @@ The program is started from the command line:
 >go run . -id elev2 -addr localhost:15658  
 >go run . -id elev3 -addr localhost:15659  
 
-
 Each elevator instance must run with a unique ID and network address. 
+
+### Network Ports
+The system uses the following fixed UDP broadcast ports:
+- `16570` — Elevator state
+- `16571` — Orders
+- `16647` — Heartbeat
+
+Ensure these ports are not blocked by a firewall or used by other processes.
